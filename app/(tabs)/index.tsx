@@ -57,9 +57,7 @@ export default function HomeScreen() {
           <ThemedText type="defaultSemiBold">app-example</ThemedText>.
         </ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ChatWidget />
-      </ThemedView>
+      <ChatWidget />
     </ParallaxScrollView>
   );
 }
