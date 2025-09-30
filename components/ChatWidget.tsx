@@ -46,14 +46,9 @@ function getResponse(message: string): string {
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Hi! I\'m your chat assistant. Try saying hello!',
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [isPhoneSet, setIsPhoneSet] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
   
@@ -66,7 +61,20 @@ export function ChatWidget() {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const sendMessage = () => {
+  const setPhone = () => {
+    if (phoneNumber.trim() === '') return;
+    setIsPhoneSet(true);
+    setMessages([
+      {
+        id: '1',
+        text: `Connected to WhatsApp number: ${phoneNumber}`,
+        isUser: false,
+        timestamp: new Date(),
+      },
+    ]);
+  };
+
+  const sendMessage = async () => {
     if (inputText.trim() === '') return;
 
     const userMessage: Message = {
@@ -77,17 +85,47 @@ export function ChatWidget() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const messageToSend = inputText;
     setInputText('');
 
-    setTimeout(() => {
-      const botResponse: Message = {
+    try {
+      const backendUrl = typeof window !== 'undefined' 
+        ? `${window.location.protocol}//${window.location.hostname}:3001`
+        : 'http://localhost:3001';
+        
+      const response = await fetch(`${backendUrl}/api/send-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: phoneNumber,
+          message: messageToSend,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const confirmMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: '✓ Sent via WhatsApp',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, confirmMessage]);
+      } else {
+        throw new Error(data.error || 'Failed to send');
+      }
+    } catch (error) {
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: getResponse(inputText),
+        text: `Error: ${error instanceof Error ? error.message : 'Failed to send message'}`,
         isUser: false,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, botResponse]);
-    }, 500);
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   const toggleChat = () => {
@@ -100,17 +138,46 @@ export function ChatWidget() {
         <View style={styles.popupContainer}>
           <ThemedView style={styles.chatWindow}>
             <View style={[styles.header, { backgroundColor: tintColor }]}>
-              <ThemedText style={styles.headerText}>Chat Assistant</ThemedText>
+              <ThemedText style={styles.headerText}>WhatsApp Chat</ThemedText>
               <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
                 <ThemedText style={styles.closeButtonText}>✕</ThemedText>
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.messagesContainer}
-              contentContainerStyle={styles.messagesContent}
-            >
+            {!isPhoneSet ? (
+              <View style={styles.phoneSetup}>
+                <ThemedText style={styles.setupText}>
+                  Enter WhatsApp number to chat with:
+                </ThemedText>
+                <TextInput
+                  style={[
+                    styles.phoneInput,
+                    {
+                      backgroundColor,
+                      color: textColor,
+                      borderColor,
+                    },
+                  ]}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  placeholder="e.g., 1234567890"
+                  placeholderTextColor={borderColor}
+                  keyboardType="phone-pad"
+                  onSubmitEditing={setPhone}
+                />
+                <TouchableOpacity
+                  style={[styles.connectButton, { backgroundColor: '#007AFF' }]}
+                  onPress={setPhone}
+                >
+                  <ThemedText style={styles.connectButtonText}>Connect</ThemedText>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.messagesContainer}
+                contentContainerStyle={styles.messagesContent}
+              >
               {messages.map((message) => (
                 <View
                   key={message.id}
@@ -132,9 +199,11 @@ export function ChatWidget() {
                   </ThemedText>
                 </View>
               ))}
-            </ScrollView>
+              </ScrollView>
+            )}
 
-            <KeyboardAvoidingView
+            {isPhoneSet && (
+              <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               keyboardVerticalOffset={100}
             >
@@ -162,7 +231,8 @@ export function ChatWidget() {
                   <ThemedText style={styles.sendButtonText}>Send</ThemedText>
                 </TouchableOpacity>
               </View>
-            </KeyboardAvoidingView>
+              </KeyboardAvoidingView>
+            )}
           </ThemedView>
         </View>
       )}
@@ -300,5 +370,33 @@ const styles = StyleSheet.create({
   floatingButtonText: {
     fontSize: 28,
     color: '#fff',
+  },
+  phoneSetup: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+  },
+  setupText: {
+    fontSize: 16,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  phoneInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  connectButton: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  connectButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
