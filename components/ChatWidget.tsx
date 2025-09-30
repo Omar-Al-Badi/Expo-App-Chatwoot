@@ -118,14 +118,14 @@ export function ChatWidget() {
                     styles.messageBubble,
                     message.isUser ? styles.userBubble : styles.botBubble,
                     {
-                      backgroundColor: message.isUser ? tintColor : borderColor,
+                      backgroundColor: message.isUser ? '#007AFF' : borderColor,
                     },
                   ]}
                 >
                   <ThemedText
                     style={[
                       styles.messageText,
-                      message.isUser && { color: '#fff' },
+                      message.isUser && { color: '#FFFFFF' },
                     ]}
                   >
                     {message.text}
@@ -156,7 +156,7 @@ export function ChatWidget() {
                   returnKeyType="send"
                 />
                 <TouchableOpacity
-                  style={[styles.sendButton, { backgroundColor: tintColor }]}
+                  style={[styles.sendButton, { backgroundColor: '#007AFF' }]}
                   onPress={sendMessage}
                 >
                   <ThemedText style={styles.sendButtonText}>Send</ThemedText>
