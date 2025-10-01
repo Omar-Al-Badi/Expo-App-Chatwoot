@@ -165,14 +165,15 @@ whatsappClient.on('disconnected', (reason) => {
 // Incoming message event (replaces webhook)
 whatsappClient.on('message', async (message) => {
   try {
+    console.log('📩 WhatsApp message detected:', {
+      fromMe: message.fromMe,
+      from: message.from,
+      body: message.body?.substring(0, 50),
+      hasQuotedMsg: message.hasQuotedMsg
+    });
+
     if (!message.fromMe) {
-      const incomingMessage = {
-        from: message.from,
-        text: message.body,
-        timestamp: message.timestamp,
-        type: message.type
-      };
-      console.log('Incoming message:', incomingMessage);
+      console.log('⏭️ Skipping message (not from business owner)');
       return;
     }
 
