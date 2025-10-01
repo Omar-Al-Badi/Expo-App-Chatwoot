@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -17,6 +18,19 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+}
+
+async function getOrCreateSessionId(): Promise<string> {
+  try {
+    let sessionId = await AsyncStorage.getItem('chatSessionId');
+    if (!sessionId) {
+      sessionId = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+      await AsyncStorage.setItem('chatSessionId', sessionId);
+    }
+    return sessionId;
+  } catch (error) {
+    return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+  }
 }
 
 const hardcodedResponses: { [key: string]: string } = {
@@ -90,6 +104,7 @@ export function ChatWidget() {
 
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+      const sessionId = await getOrCreateSessionId();
       
       console.log('🔌 Sending message to backend:', backendUrl);
         
@@ -99,9 +114,10 @@ export function ChatWidget() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          customerName: customerName || 'Website Visitor',
+          customerName: customerName || 'Mobile App User',
           customerEmail: customerEmail || undefined,
           message: messageToSend,
+          sessionId: sessionId,
         }),
       });
 
