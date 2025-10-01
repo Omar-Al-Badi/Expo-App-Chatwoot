@@ -299,6 +299,26 @@ app.get('/api/events', (req, res) => {
   });
 });
 
+// Poll for replies endpoint (for mobile app compatibility)
+app.get('/api/poll-replies', (req, res) => {
+  const sessionId = req.query.sessionId;
+  
+  if (!sessionId) {
+    return res.status(400).json({ error: 'sessionId is required' });
+  }
+
+  updateSessionActivity(sessionId);
+
+  if (pendingBySession.has(sessionId)) {
+    const replies = pendingBySession.get(sessionId);
+    pendingBySession.delete(sessionId);
+    console.log(`📬 Delivered ${replies.length} queued reply(ies) to session: ${sessionId}`);
+    return res.json({ replies });
+  }
+
+  res.json({ replies: [] });
+});
+
 // Send message endpoint - sends customer inquiries TO the business owner
 app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
   try {

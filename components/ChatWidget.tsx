@@ -93,71 +93,37 @@ export function ChatWidget() {
 
   const connectToSSE = async (sessionId: string) => {
     const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-    const sseUrl = `${backendUrl}/api/events?sessionId=${sessionId}`;
+    const pollUrl = `${backendUrl}/api/poll-replies?sessionId=${sessionId}`;
     
-    console.log('🔌 Connecting to SSE:', sseUrl);
+    console.log('🔄 Starting reply polling for session:', sessionId);
 
-    try {
-      const response = await fetch(sseUrl);
-      console.log('✅ SSE connected, status:', response.status);
-      
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        console.log('❌ No reader available');
-        return;
-      }
-
-      console.log('📖 Starting to read SSE stream...');
-
-      const processStream = async () => {
-        let buffer = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            console.log('📪 SSE stream closed');
-            break;
-          }
-
-          const chunk = decoder.decode(value, { stream: true });
-          console.log('📦 Received chunk:', chunk.substring(0, 100));
-          buffer += chunk;
-          
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            console.log('📝 Processing line:', line.substring(0, 100));
-            if (line.startsWith('data: ')) {
-              try {
-                const jsonStr = line.substring(6);
-                console.log('🔍 Parsing JSON:', jsonStr);
-                const data = JSON.parse(jsonStr);
-                if (data.type === 'reply') {
-                  const replyMessage: Message = {
-                    id: Date.now().toString(),
-                    text: '📱 ' + data.message,
-                    isUser: false,
-                    timestamp: new Date(),
-                  };
-                  setMessages((prev) => [...prev, replyMessage]);
-                  console.log('✅ Received reply from owner:', data.message);
-                }
-              } catch (e) {
-                console.log('❌ SSE parse error:', e, 'Line:', line);
-              }
-            }
+    const pollForReplies = async () => {
+      try {
+        const response = await fetch(pollUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.replies && data.replies.length > 0) {
+            console.log(`📬 Received ${data.replies.length} reply(ies)`);
+            data.replies.forEach((reply: any) => {
+              const replyMessage: Message = {
+                id: Date.now().toString() + Math.random(),
+                text: '📱 ' + reply.message,
+                isUser: false,
+                timestamp: new Date(),
+              };
+              setMessages((prev) => [...prev, replyMessage]);
+            });
           }
         }
-      };
+      } catch (error) {
+        console.error('❌ Polling error:', error);
+      }
+    };
 
-      processStream().catch((error) => {
-        console.error('❌ Stream processing error:', error);
-      });
-    } catch (error) {
-      console.error('❌ SSE connection error:', error);
-    }
+    pollForReplies();
+    const interval = setInterval(pollForReplies, 3000);
+
+    return () => clearInterval(interval);
   };
 
   const sendMessage = async () => {
