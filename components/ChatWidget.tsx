@@ -99,23 +99,41 @@ export function ChatWidget() {
 
     try {
       const response = await fetch(sseUrl);
+      console.log('✅ SSE connected, status:', response.status);
+      
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
 
-      if (!reader) return;
+      if (!reader) {
+        console.log('❌ No reader available');
+        return;
+      }
+
+      console.log('📖 Starting to read SSE stream...');
 
       const processStream = async () => {
+        let buffer = '';
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            console.log('📪 SSE stream closed');
+            break;
+          }
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          const chunk = decoder.decode(value, { stream: true });
+          console.log('📦 Received chunk:', chunk.substring(0, 100));
+          buffer += chunk;
+          
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
+            console.log('📝 Processing line:', line.substring(0, 100));
             if (line.startsWith('data: ')) {
               try {
-                const data = JSON.parse(line.substring(6));
+                const jsonStr = line.substring(6);
+                console.log('🔍 Parsing JSON:', jsonStr);
+                const data = JSON.parse(jsonStr);
                 if (data.type === 'reply') {
                   const replyMessage: Message = {
                     id: Date.now().toString(),
@@ -127,16 +145,18 @@ export function ChatWidget() {
                   console.log('✅ Received reply from owner:', data.message);
                 }
               } catch (e) {
-                console.log('SSE parse error:', e);
+                console.log('❌ SSE parse error:', e, 'Line:', line);
               }
             }
           }
         }
       };
 
-      processStream().catch(console.error);
+      processStream().catch((error) => {
+        console.error('❌ Stream processing error:', error);
+      });
     } catch (error) {
-      console.error('SSE connection error:', error);
+      console.error('❌ SSE connection error:', error);
     }
   };
 
