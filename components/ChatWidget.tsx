@@ -76,7 +76,7 @@ export function ChatWidget() {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const startChat = () => {
+  const startChat = async () => {
     setIsChatStarted(true);
     setMessages([
       {
@@ -86,6 +86,58 @@ export function ChatWidget() {
         timestamp: new Date(),
       },
     ]);
+
+    const sessionId = await getOrCreateSessionId();
+    connectToSSE(sessionId);
+  };
+
+  const connectToSSE = async (sessionId: string) => {
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    const sseUrl = `${backendUrl}/api/events?sessionId=${sessionId}`;
+    
+    console.log('🔌 Connecting to SSE:', sseUrl);
+
+    try {
+      const response = await fetch(sseUrl);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) return;
+
+      const processStream = async () => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.type === 'reply') {
+                  const replyMessage: Message = {
+                    id: Date.now().toString(),
+                    text: '📱 ' + data.message,
+                    isUser: false,
+                    timestamp: new Date(),
+                  };
+                  setMessages((prev) => [...prev, replyMessage]);
+                  console.log('✅ Received reply from owner:', data.message);
+                }
+              } catch (e) {
+                console.log('SSE parse error:', e);
+              }
+            }
+          }
+        }
+      };
+
+      processStream().catch(console.error);
+    } catch (error) {
+      console.error('SSE connection error:', error);
+    }
   };
 
   const sendMessage = async () => {
