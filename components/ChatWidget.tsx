@@ -89,10 +89,7 @@ export function ChatWidget() {
     setInputText('');
 
     try {
-      // Use HTTPS and port 3001 for Replit environment
-      const backendUrl = typeof window !== 'undefined'
-        ? `https://${window.location.hostname}:3001`
-        : 'http://localhost:3001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
       
       console.log('🔌 Sending message to backend:', backendUrl);
         

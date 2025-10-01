@@ -15,7 +15,7 @@ let qrCodeData = null;
 let businessWhatsAppNumber = null;
 
 const allowedOrigins = process.env.REPLIT_DEV_DOMAIN 
-  ? [`https://${process.env.REPLIT_DEV_DOMAIN}`] 
+  ? [`https://${process.env.REPLIT_DEV_DOMAIN}`, 'http://localhost:5000'] 
   : ['http://localhost:5000'];
 
 app.use(cors({
@@ -37,6 +37,13 @@ const localhostOnly = (req, res, next) => {
     res.status(403).json({ error: 'Access denied' });
   }
 };
+
+const sendMessageRateLimit = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many messages. Please wait a minute.' },
+  standardHeaders: true,
+});
 
 // Find Chromium executable path dynamically
 const getChromiumPath = () => {
@@ -133,7 +140,7 @@ console.log('Initializing WhatsApp client...');
 whatsappClient.initialize();
 
 // Send message endpoint - sends customer inquiries TO the business owner
-app.post('/api/send-message', async (req, res) => {
+app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
   try {
     const { customerName, message, customerEmail } = req.body;
     console.log('📤 Received customer inquiry:', { customerName, message, customerEmail });
@@ -258,7 +265,8 @@ app.post('/api/logout', localhostOnly, async (req, res) => {
   }
 });
 
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Backend server running on port ${PORT} (localhost only)`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Backend server running on port ${PORT}`);
   console.log(`WhatsApp service: whatsapp-web.js`);
+  console.log(`CORS allowed origins: ${process.env.REPLIT_DEV_DOMAIN ? 'Replit domain + localhost:5000' : 'localhost:5000'}`);
 });
