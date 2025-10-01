@@ -107,12 +107,15 @@ whatsappClient.initialize();
 app.post('/api/send-message', async (req, res) => {
   try {
     const { phoneNumber, message } = req.body;
+    console.log('📤 Received send-message request:', { phoneNumber, message });
 
     if (!phoneNumber || !message) {
+      console.log('❌ Missing phone number or message');
       return res.status(400).json({ error: 'Phone number and message are required' });
     }
 
     if (!isClientReady) {
+      console.log('❌ WhatsApp client not ready');
       return res.status(503).json({ 
         error: 'WhatsApp client not ready',
         qrCode: qrCodeData ? 'Please scan QR code first' : 'Client is initializing'
@@ -121,9 +124,11 @@ app.post('/api/send-message', async (req, res) => {
 
     // Format chatId properly
     const chatId = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@c.us`;
+    console.log('📱 Formatted chatId:', chatId);
 
     // Send message using whatsapp-web.js
     const sentMessage = await whatsappClient.sendMessage(chatId, message);
+    console.log('✅ Message sent successfully:', sentMessage.id._serialized);
 
     res.json({ 
       success: true, 
@@ -133,7 +138,8 @@ app.post('/api/send-message', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error sending message:', error.message);
+    console.error('❌ Error sending message:', error.message);
+    console.error('Full error:', error);
     res.status(500).json({ 
       error: 'Failed to send message', 
       details: error.message 

@@ -89,9 +89,12 @@ export function ChatWidget() {
     setInputText('');
 
     try {
+      // Construct backend URL - use HTTP for port 3001
       const backendUrl = typeof window !== 'undefined' 
-        ? `${window.location.protocol}//${window.location.hostname}:3001`
+        ? `http://${window.location.hostname}:3001`
         : 'http://localhost:3001';
+      
+      console.log('🔌 Connecting to backend:', backendUrl);
         
       const response = await fetch(`${backendUrl}/api/send-message`, {
         method: 'POST',
@@ -103,6 +106,8 @@ export function ChatWidget() {
           message: messageToSend,
         }),
       });
+
+      console.log('📡 Backend response status:', response.status);
 
       const data = await response.json();
       
