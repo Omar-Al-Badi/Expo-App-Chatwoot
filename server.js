@@ -87,6 +87,7 @@ const sendMessageRateLimit = rateLimit({
   message: { error: 'Too many messages. Please wait a minute.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false }
 });
 
 // Find Chromium executable path dynamically

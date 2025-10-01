@@ -328,6 +328,8 @@
             return sid;
         }
 
+        sessionId = getOrCreateSessionId();
+
         function connectToSSE() {
             if (eventSource) {
                 eventSource.close();
@@ -382,6 +384,10 @@
             const message = messageInput.value.trim();
             
             if (!message) return;
+
+            if (!sessionId) {
+                sessionId = getOrCreateSessionId();
+            }
             
             addMessage(message, true);
             messageInput.value = '';
@@ -393,7 +399,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        customerName: customerName,
+                        customerName: customerName || 'Website Visitor',
                         customerEmail: customerEmail || undefined,
                         message: message,
                         sessionId: sessionId
