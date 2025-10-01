@@ -18,6 +18,10 @@ localPort = 5001
 externalPort = 3002
 
 [[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
 localPort = 8081
 externalPort = 80
 
@@ -85,6 +89,10 @@ args = "Backend Server"
 task = "workflow.run"
 args = "Web Frontend"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Expo Server"
+
 [[workflows.workflow]]
 name = "Backend Server"
 author = "agent"
@@ -108,6 +116,18 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Expo Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx expo start --tunnel --port 8080"
+waitForPort = 8080
 
 [agent]
 expertMode = true
