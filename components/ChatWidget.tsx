@@ -89,12 +89,12 @@ export function ChatWidget() {
     setInputText('');
 
     try {
-      // Construct backend URL - use HTTP for port 3001
-      const backendUrl = typeof window !== 'undefined' 
-        ? `http://${window.location.hostname}:3001`
+      // Use HTTPS and port 3001 for Replit environment
+      const backendUrl = typeof window !== 'undefined'
+        ? `https://${window.location.hostname}:3001`
         : 'http://localhost:3001';
       
-      console.log('🔌 Connecting to backend:', backendUrl);
+      console.log('🔌 Sending message to backend:', backendUrl);
         
       const response = await fetch(`${backendUrl}/api/send-message`, {
         method: 'POST',
