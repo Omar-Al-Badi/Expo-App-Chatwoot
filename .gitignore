@@ -36,4 +36,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# WhatsApp session files
+.wwebjs_auth/
+.wwebjs_cache/
+
 app-example
