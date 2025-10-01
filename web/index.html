@@ -316,6 +316,43 @@
         let customerName = '';
         let customerEmail = '';
         let isChatStarted = false;
+        let sessionId = '';
+        let eventSource = null;
+
+        function getOrCreateSessionId() {
+            let sid = localStorage.getItem('chatSessionId');
+            if (!sid) {
+                sid = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                localStorage.setItem('chatSessionId', sid);
+            }
+            return sid;
+        }
+
+        function connectToSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            const url = `/api/events?sessionId=${sessionId}`;
+            eventSource = new EventSource(url);
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'reply') {
+                        addMessage(data.message, false, true);
+                    }
+                } catch (error) {
+                    console.error('Error parsing SSE message:', error);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('SSE connection error:', error);
+                eventSource.close();
+                setTimeout(() => connectToSSE(), 5000);
+            };
+        }
 
         function toggleChat() {
             const chatWindow = document.getElementById('chatWindow');
@@ -326,13 +363,17 @@
             customerName = document.getElementById('customerName').value || 'Website Visitor';
             customerEmail = document.getElementById('customerEmail').value || '';
             
+            sessionId = getOrCreateSessionId();
+            
             document.getElementById('chatSetup').style.display = 'none';
             document.getElementById('chatMessages').style.display = 'block';
             document.getElementById('chatInput').style.display = 'flex';
             
             isChatStarted = true;
             
-            const greeting = `Hi${customerName !== 'Website Visitor' ? ' ' + customerName : ''}! 👋\n\nHow can we help you today? Your message will be sent directly to our WhatsApp.`;
+            connectToSSE();
+            
+            const greeting = `Hi${customerName !== 'Website Visitor' ? ' ' + customerName : ''}! 👋\n\nHow can we help you today? Your message will be sent directly to our WhatsApp, and we'll reply here.`;
             addMessage(greeting, false);
         }
 
@@ -355,6 +396,7 @@
                         customerName: customerName,
                         customerEmail: customerEmail || undefined,
                         message: message,
+                        sessionId: sessionId
                     }),
                 });
 
@@ -370,14 +412,14 @@
             }
         }
 
-        function addMessage(text, isUser) {
+        function addMessage(text, isUser, isReply = false) {
             const messagesContainer = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
             
             const bubbleDiv = document.createElement('div');
             bubbleDiv.className = 'message-bubble';
-            bubbleDiv.textContent = text;
+            bubbleDiv.textContent = isReply ? '📱 ' + text : text;
             
             messageDiv.appendChild(bubbleDiv);
             messagesContainer.appendChild(messageDiv);
@@ -390,6 +432,12 @@
                 sendMessage();
             }
         }
+
+        window.addEventListener('beforeunload', () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
     </script>
 </body>
 </html>

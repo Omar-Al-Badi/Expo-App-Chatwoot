@@ -14,6 +14,60 @@ let isClientReady = false;
 let qrCodeData = null;
 let businessWhatsAppNumber = null;
 
+const inquiriesByMsgId = new Map();
+const sseClients = new Map();
+const pendingBySession = new Map();
+const sessionTags = new Map();
+const sessionActivity = new Map();
+
+const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
+
+function generateSessionTag() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let tag = '';
+  for (let i = 0; i < 4; i++) {
+    tag += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return tag;
+}
+
+function getTagForSession(sessionId) {
+  if (!sessionTags.has(sessionId)) {
+    let tag = generateSessionTag();
+    while ([...sessionTags.values()].includes(tag)) {
+      tag = generateSessionTag();
+    }
+    sessionTags.set(sessionId, tag);
+  }
+  return sessionTags.get(sessionId);
+}
+
+function updateSessionActivity(sessionId) {
+  sessionActivity.set(sessionId, Date.now());
+}
+
+function cleanupExpiredSessions() {
+  const now = Date.now();
+  
+  for (const [msgId, data] of inquiriesByMsgId.entries()) {
+    if (now - data.createdAt > SESSION_TTL) {
+      inquiriesByMsgId.delete(msgId);
+    }
+  }
+  
+  for (const [sessionId, lastActivity] of sessionActivity.entries()) {
+    if (now - lastActivity > SESSION_TTL) {
+      sessionTags.delete(sessionId);
+      pendingBySession.delete(sessionId);
+      sessionActivity.delete(sessionId);
+      sseClients.delete(sessionId);
+      console.log(`🧹 Cleaned up expired session: ${sessionId}`);
+    }
+  }
+}
+
+setInterval(cleanupExpiredSessions, 60 * 60 * 1000);
+
 app.use(cors());
 app.use(bodyParser.json());
 app.set('trust proxy', true);
@@ -110,7 +164,6 @@ whatsappClient.on('disconnected', (reason) => {
 // Incoming message event (replaces webhook)
 whatsappClient.on('message', async (message) => {
   try {
-    // Log incoming messages that are not from us
     if (!message.fromMe) {
       const incomingMessage = {
         from: message.from,
@@ -119,6 +172,76 @@ whatsappClient.on('message', async (message) => {
         type: message.type
       };
       console.log('Incoming message:', incomingMessage);
+      return;
+    }
+
+    if (!businessWhatsAppNumber) return;
+    
+    const chatId = `${businessWhatsAppNumber}@c.us`;
+    if (message.from !== chatId) return;
+
+    if (message.id && message.id._serialized && inquiriesByMsgId.has(message.id._serialized)) {
+      return;
+    }
+
+    if (message.body.startsWith('🔔 *New Website Inquiry*') || 
+        message.body.startsWith('💡 To reply to a customer')) {
+      return;
+    }
+
+    let targetSessionId = null;
+
+    if (message.hasQuotedMsg) {
+      const quotedMsg = await message.getQuotedMessage();
+      if (quotedMsg && quotedMsg.id && quotedMsg.id._serialized) {
+        const inquiry = inquiriesByMsgId.get(quotedMsg.id._serialized);
+        if (inquiry) {
+          targetSessionId = inquiry.sessionId;
+          console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
+        }
+      }
+    }
+
+    if (!targetSessionId) {
+      const tagMatch = message.body.match(/(?:\[#|#)([A-Z0-9]{4})\]?/);
+      if (tagMatch) {
+        const tag = tagMatch[1];
+        for (const [sid, t] of sessionTags.entries()) {
+          if (t === tag) {
+            targetSessionId = sid;
+            console.log(`📨 Owner reply via tag #${tag} to session: ${targetSessionId}`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetSessionId) {
+      const replyMessage = {
+        type: 'reply',
+        message: message.body,
+        timestamp: message.timestamp
+      };
+
+      updateSessionActivity(targetSessionId);
+
+      if (sseClients.has(targetSessionId)) {
+        const clients = sseClients.get(targetSessionId);
+        clients.forEach(client => {
+          client.write(`data: ${JSON.stringify(replyMessage)}\n\n`);
+        });
+        console.log(`✅ Reply delivered to session: ${targetSessionId} (${clients.size} client(s))`);
+      } else {
+        if (!pendingBySession.has(targetSessionId)) {
+          pendingBySession.set(targetSessionId, []);
+        }
+        pendingBySession.get(targetSessionId).push(replyMessage);
+        console.log(`📥 Reply queued for session: ${targetSessionId}`);
+      }
+    } else {
+      const hintMsg = '💡 To reply to a customer, either:\n• Quote their message, or\n• Include the session tag like #TAG in your reply';
+      await whatsappClient.sendMessage(chatId, hintMsg);
+      console.log('⚠️ Owner reply without valid session - sent hint');
     }
   } catch (error) {
     console.error('Error processing incoming message:', error);
@@ -129,15 +252,65 @@ whatsappClient.on('message', async (message) => {
 console.log('Initializing WhatsApp client...');
 whatsappClient.initialize();
 
+app.get('/api/events', (req, res) => {
+  const sessionId = req.query.sessionId;
+  
+  if (!sessionId) {
+    return res.status(400).json({ error: 'sessionId is required' });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+
+  if (!sseClients.has(sessionId)) {
+    sseClients.set(sessionId, new Set());
+  }
+  sseClients.get(sessionId).add(res);
+  updateSessionActivity(sessionId);
+  console.log(`📡 SSE client connected: ${sessionId} (total: ${sseClients.get(sessionId).size})`);
+
+  if (pendingBySession.has(sessionId)) {
+    const pending = pendingBySession.get(sessionId);
+    pending.forEach(msg => {
+      res.write(`data: ${JSON.stringify(msg)}\n\n`);
+    });
+    pendingBySession.delete(sessionId);
+  }
+
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    if (sseClients.has(sessionId)) {
+      sseClients.get(sessionId).delete(res);
+      const remaining = sseClients.get(sessionId).size;
+      console.log(`📡 SSE client disconnected: ${sessionId} (remaining: ${remaining})`);
+      if (remaining === 0) {
+        sseClients.delete(sessionId);
+      }
+    }
+  });
+});
+
 // Send message endpoint - sends customer inquiries TO the business owner
 app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
   try {
-    const { customerName, message, customerEmail } = req.body;
-    console.log('📤 Received customer inquiry:', { customerName, message, customerEmail });
+    const { customerName, message, customerEmail, sessionId } = req.body;
+    console.log('📤 Received customer inquiry:', { customerName, message, customerEmail, sessionId });
 
     if (!message) {
       console.log('❌ Missing message');
       return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (!sessionId) {
+      console.log('❌ Missing sessionId');
+      return res.status(400).json({ error: 'sessionId is required' });
     }
 
     if (!isClientReady) {
@@ -155,11 +328,10 @@ app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
       });
     }
 
-    // Send message TO the business owner (yourself)
     const chatId = `${businessWhatsAppNumber}@c.us`;
+    const sessionTag = getTagForSession(sessionId);
     
-    // Format message with customer info
-    const formattedMessage = `🔔 *New Website Inquiry*\n\n` +
+    const formattedMessage = `🔔 *New Website Inquiry* [#${sessionTag}]\n\n` +
       `👤 From: ${customerName || 'Anonymous'}\n` +
       `${customerEmail ? `📧 Email: ${customerEmail}\n` : ''}` +
       `\n💬 Message:\n${message}\n\n` +
@@ -167,15 +339,25 @@ app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
 
     console.log('📱 Sending to business WhatsApp:', chatId);
 
-    // Send message using whatsapp-web.js
     const sentMessage = await whatsappClient.sendMessage(chatId, formattedMessage);
     console.log('✅ Message sent successfully:', sentMessage.id._serialized);
+
+    updateSessionActivity(sessionId);
+
+    inquiriesByMsgId.set(sentMessage.id._serialized, {
+      sessionId,
+      customerName,
+      customerEmail,
+      createdAt: Date.now(),
+      tag: sessionTag
+    });
 
     res.json({ 
       success: true, 
       data: {
         id: sentMessage.id._serialized,
-        timestamp: sentMessage.timestamp
+        timestamp: sentMessage.timestamp,
+        sessionTag
       }
     });
   } catch (error) {
