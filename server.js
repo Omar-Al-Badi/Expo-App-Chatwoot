@@ -14,20 +14,9 @@ let isClientReady = false;
 let qrCodeData = null;
 let businessWhatsAppNumber = null;
 
-const allowedOrigins = process.env.REPLIT_DEV_DOMAIN 
-  ? [`https://${process.env.REPLIT_DEV_DOMAIN}`, 'http://localhost:5000'] 
-  : ['http://localhost:5000'];
-
-app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-}));
+app.use(cors());
 app.use(bodyParser.json());
+app.set('trust proxy', true);
 
 const localhostOnly = (req, res, next) => {
   const clientIp = req.ip || req.connection.remoteAddress;
@@ -40,9 +29,10 @@ const localhostOnly = (req, res, next) => {
 
 const sendMessageRateLimit = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 10,
+  max: 50,
   message: { error: 'Too many messages. Please wait a minute.' },
   standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // Find Chromium executable path dynamically
@@ -268,5 +258,5 @@ app.post('/api/logout', localhostOnly, async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
   console.log(`WhatsApp service: whatsapp-web.js`);
-  console.log(`CORS allowed origins: ${process.env.REPLIT_DEV_DOMAIN ? 'Replit domain + localhost:5000' : 'localhost:5000'}`);
+  console.log(`CORS: Open (all origins allowed)`);
 });
