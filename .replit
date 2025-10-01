@@ -24,10 +24,6 @@ externalPort = 80
 localPort = 8082
 externalPort = 3000
 
-[[ports]]
-localPort = 41061
-externalPort = 3003
-
 [workflows]
 runButton = "Project"
 
@@ -89,12 +85,11 @@ name = "Expo Server"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx expo start --web --port 5000"
-waitForPort = 5000
+args = "npx expo start --tunnel"
 
 [[workflows.workflow]]
 name = "Backend Server"
