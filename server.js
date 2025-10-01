@@ -162,10 +162,10 @@ whatsappClient.on('disconnected', (reason) => {
   isClientReady = false;
 });
 
-// Incoming message event (replaces webhook)
-whatsappClient.on('message', async (message) => {
+// Use message_create instead of message for better reliability
+whatsappClient.on('message_create', async (message) => {
   try {
-    console.log('📩 WhatsApp message detected:', {
+    console.log('📩 WhatsApp message_create detected:', {
       fromMe: message.fromMe,
       from: message.from,
       body: message.body?.substring(0, 50),
