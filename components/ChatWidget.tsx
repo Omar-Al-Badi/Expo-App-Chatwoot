@@ -46,8 +46,9 @@ function getResponse(message: string): string {
 
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [isPhoneSet, setIsPhoneSet] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
@@ -61,13 +62,12 @@ export function ChatWidget() {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const setPhone = () => {
-    if (phoneNumber.trim() === '') return;
-    setIsPhoneSet(true);
+  const startChat = () => {
+    setIsChatStarted(true);
     setMessages([
       {
         id: '1',
-        text: `Connected to WhatsApp number: ${phoneNumber}`,
+        text: `Hi${customerName ? ' ' + customerName : ''}! 👋\n\nHow can we help you today? Your message will be sent directly to our WhatsApp.`,
         isUser: false,
         timestamp: new Date(),
       },
@@ -102,7 +102,8 @@ export function ChatWidget() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          phoneNumber: phoneNumber,
+          customerName: customerName || 'Website Visitor',
+          customerEmail: customerEmail || undefined,
           message: messageToSend,
         }),
       });
@@ -149,10 +150,10 @@ export function ChatWidget() {
               </TouchableOpacity>
             </View>
 
-            {!isPhoneSet ? (
+            {!isChatStarted ? (
               <View style={styles.phoneSetup}>
                 <ThemedText style={styles.setupText}>
-                  Enter WhatsApp number to chat with:
+                  Start a conversation with us! 💬
                 </ThemedText>
                 <TextInput
                   style={[
@@ -163,18 +164,34 @@ export function ChatWidget() {
                       borderColor,
                     },
                   ]}
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  placeholder="e.g., 1234567890"
+                  value={customerName}
+                  onChangeText={setCustomerName}
+                  placeholder="Your name (optional)"
                   placeholderTextColor={borderColor}
-                  keyboardType="phone-pad"
-                  onSubmitEditing={setPhone}
+                  autoCapitalize="words"
+                />
+                <TextInput
+                  style={[
+                    styles.phoneInput,
+                    {
+                      backgroundColor,
+                      color: textColor,
+                      borderColor,
+                      marginTop: 10,
+                    },
+                  ]}
+                  value={customerEmail}
+                  onChangeText={setCustomerEmail}
+                  placeholder="Your email (optional)"
+                  placeholderTextColor={borderColor}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
                 <TouchableOpacity
-                  style={[styles.connectButton, { backgroundColor: '#007AFF' }]}
-                  onPress={setPhone}
+                  style={[styles.connectButton, { backgroundColor: '#25D366' }]}
+                  onPress={startChat}
                 >
-                  <ThemedText style={styles.connectButtonText}>Connect</ThemedText>
+                  <ThemedText style={styles.connectButtonText}>Start Chat</ThemedText>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -207,7 +224,7 @@ export function ChatWidget() {
               </ScrollView>
             )}
 
-            {isPhoneSet && (
+            {isChatStarted && (
               <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               keyboardVerticalOffset={100}

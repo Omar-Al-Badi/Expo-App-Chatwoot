@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { execSync } = require('child_process');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = 3001;
@@ -11,9 +12,31 @@ const PORT = 3001;
 let whatsappClient;
 let isClientReady = false;
 let qrCodeData = null;
+let businessWhatsAppNumber = null;
 
-app.use(cors());
+const allowedOrigins = process.env.REPLIT_DEV_DOMAIN 
+  ? [`https://${process.env.REPLIT_DEV_DOMAIN}`] 
+  : ['http://localhost:5000'];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 app.use(bodyParser.json());
+
+const localhostOnly = (req, res, next) => {
+  const clientIp = req.ip || req.connection.remoteAddress;
+  if (clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Access denied' });
+  }
+};
 
 // Find Chromium executable path dynamically
 const getChromiumPath = () => {
@@ -58,10 +81,16 @@ whatsappClient.on('qr', (qr) => {
 });
 
 // Client ready event
-whatsappClient.on('ready', () => {
+whatsappClient.on('ready', async () => {
   console.log('WhatsApp client is ready!');
   isClientReady = true;
   qrCodeData = null;
+  
+  // Get the authenticated WhatsApp number (business owner's number)
+  if (whatsappClient.info) {
+    businessWhatsAppNumber = whatsappClient.info.wid.user;
+    console.log('📱 Business WhatsApp Number:', businessWhatsAppNumber);
+  }
 });
 
 // Authentication success event
@@ -103,15 +132,15 @@ whatsappClient.on('message', async (message) => {
 console.log('Initializing WhatsApp client...');
 whatsappClient.initialize();
 
-// Send message endpoint
+// Send message endpoint - sends customer inquiries TO the business owner
 app.post('/api/send-message', async (req, res) => {
   try {
-    const { phoneNumber, message } = req.body;
-    console.log('📤 Received send-message request:', { phoneNumber, message });
+    const { customerName, message, customerEmail } = req.body;
+    console.log('📤 Received customer inquiry:', { customerName, message, customerEmail });
 
-    if (!phoneNumber || !message) {
-      console.log('❌ Missing phone number or message');
-      return res.status(400).json({ error: 'Phone number and message are required' });
+    if (!message) {
+      console.log('❌ Missing message');
+      return res.status(400).json({ error: 'Message is required' });
     }
 
     if (!isClientReady) {
@@ -122,12 +151,27 @@ app.post('/api/send-message', async (req, res) => {
       });
     }
 
-    // Format chatId properly
-    const chatId = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@c.us`;
-    console.log('📱 Formatted chatId:', chatId);
+    if (!businessWhatsAppNumber) {
+      console.log('❌ Business WhatsApp number not available');
+      return res.status(503).json({ 
+        error: 'Business WhatsApp number not configured'
+      });
+    }
+
+    // Send message TO the business owner (yourself)
+    const chatId = `${businessWhatsAppNumber}@c.us`;
+    
+    // Format message with customer info
+    const formattedMessage = `🔔 *New Website Inquiry*\n\n` +
+      `👤 From: ${customerName || 'Anonymous'}\n` +
+      `${customerEmail ? `📧 Email: ${customerEmail}\n` : ''}` +
+      `\n💬 Message:\n${message}\n\n` +
+      `⏰ ${new Date().toLocaleString()}`;
+
+    console.log('📱 Sending to business WhatsApp:', chatId);
 
     // Send message using whatsapp-web.js
-    const sentMessage = await whatsappClient.sendMessage(chatId, message);
+    const sentMessage = await whatsappClient.sendMessage(chatId, formattedMessage);
     console.log('✅ Message sent successfully:', sentMessage.id._serialized);
 
     res.json({ 
@@ -147,8 +191,8 @@ app.post('/api/send-message', async (req, res) => {
   }
 });
 
-// Get QR code endpoint (for authentication)
-app.get('/api/qr-code', (req, res) => {
+// Get QR code endpoint (for authentication) - localhost only
+app.get('/api/qr-code', localhostOnly, (req, res) => {
   if (isClientReady) {
     res.json({ 
       ready: true, 
@@ -168,8 +212,8 @@ app.get('/api/qr-code', (req, res) => {
   }
 });
 
-// Get session status endpoint
-app.get('/api/sessions', async (req, res) => {
+// Get session status endpoint - localhost only
+app.get('/api/sessions', localhostOnly, async (req, res) => {
   try {
     const sessionInfo = {
       status: isClientReady ? 'ready' : 'not_ready',
@@ -201,8 +245,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Logout/disconnect endpoint
-app.post('/api/logout', async (req, res) => {
+// Logout/disconnect endpoint - localhost only
+app.post('/api/logout', localhostOnly, async (req, res) => {
   try {
     await whatsappClient.logout();
     isClientReady = false;
@@ -214,7 +258,7 @@ app.post('/api/logout', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend server running on port ${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Backend server running on port ${PORT} (localhost only)`);
   console.log(`WhatsApp service: whatsapp-web.js`);
 });
