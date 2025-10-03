@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions,
   Text,
+  Keyboard,
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -108,6 +109,7 @@ export function ChatWidget() {
     setMessages((prev) => [...prev, userMessage]);
     const messageToSend = inputText;
     setInputText('');
+    Keyboard.dismiss();
 
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
@@ -169,8 +171,8 @@ export function ChatWidget() {
       {isOpen && (
         <KeyboardAvoidingView
           style={styles.popupContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
         >
           <View style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
             <View style={styles.header}>
@@ -391,6 +393,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     borderTopWidth: 1,
     borderTopColor: '#D1D1D1',
+    ...Platform.select({
+      android: {
+        paddingBottom: 16,
+      },
+    }),
   },
   input: {
     flex: 1,
