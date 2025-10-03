@@ -40,11 +40,32 @@ export function ChatWidget() {
   const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   const startChat = async () => {
     setIsChatStarted(true);
@@ -163,17 +184,25 @@ export function ChatWidget() {
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
   const chatWidth = Math.min(screenWidth - 20, 380);
-  const maxChatHeight = screenHeight - 150;
-  const chatHeight = Math.min(maxChatHeight, 550);
+  
+  let bottomPosition = keyboardHeight > 0 ? keyboardHeight + 10 : 80;
+  const topMargin = 20;
+  const minUsableHeight = 160;
+  
+  let maxPossibleHeight = screenHeight - bottomPosition - topMargin;
+  
+  // If not enough space above keyboard, reduce bottomPosition to fit minimum usable height
+  if (maxPossibleHeight < minUsableHeight && keyboardHeight > 0) {
+    bottomPosition = Math.max(10, screenHeight - minUsableHeight - topMargin);
+    maxPossibleHeight = screenHeight - bottomPosition - topMargin;
+  }
+  
+  const chatHeight = Math.min(550, Math.max(0, maxPossibleHeight));
 
   return (
     <>
       {isOpen && (
-        <KeyboardAvoidingView
-          style={styles.popupContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-        >
+        <View style={[styles.popupContainer, { bottom: bottomPosition }]}>
           <View style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
             <View style={styles.header}>
               <Text style={styles.headerText}>WhatsApp Chat</Text>
@@ -254,7 +283,7 @@ export function ChatWidget() {
                     onSubmitEditing={sendMessage}
                     returnKeyType="send"
                     style={styles.input}
-                    multiline
+                    multiline={false}
                     maxLength={500}
                   />
                   <Button
@@ -268,7 +297,7 @@ export function ChatWidget() {
               </>
             )}
           </View>
-        </KeyboardAvoidingView>
+        </View>
       )}
 
       <TouchableOpacity
@@ -286,7 +315,6 @@ export function ChatWidget() {
 const styles = StyleSheet.create({
   popupContainer: {
     position: 'absolute',
-    top: 10,
     bottom: 80,
     right: 10,
     left: 10,
@@ -298,7 +326,6 @@ const styles = StyleSheet.create({
         position: 'fixed' as any,
         left: 'auto' as any,
         right: 30,
-        top: 'auto' as any,
         bottom: 100,
       },
     }),
