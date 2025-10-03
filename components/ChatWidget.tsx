@@ -6,9 +6,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
   Text,
-  Keyboard,
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,32 +38,11 @@ export function ChatWidget() {
   const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
-
-  useEffect(() => {
-    const keyboardWillShow = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const keyboardWillHide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        setKeyboardHeight(0);
-      }
-    );
-
-    return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
-    };
-  }, []);
 
   const startChat = async () => {
     setIsChatStarted(true);
@@ -130,7 +107,6 @@ export function ChatWidget() {
     setMessages((prev) => [...prev, userMessage]);
     const messageToSend = inputText;
     setInputText('');
-    Keyboard.dismiss();
 
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
@@ -181,163 +157,125 @@ export function ChatWidget() {
     setIsOpen(!isOpen);
   };
 
-  const screenWidth = Dimensions.get('window').width;
-  const screenHeight = Dimensions.get('window').height;
-  const chatWidth = Math.min(screenWidth - 20, 380);
-  
-  let bottomPosition = keyboardHeight > 0 ? keyboardHeight + 10 : 80;
-  const topMargin = 20;
-  const minUsableHeight = 160;
-  
-  let maxPossibleHeight = screenHeight - bottomPosition - topMargin;
-  
-  // If not enough space above keyboard, reduce bottomPosition to fit minimum usable height
-  if (maxPossibleHeight < minUsableHeight && keyboardHeight > 0) {
-    bottomPosition = Math.max(10, screenHeight - minUsableHeight - topMargin);
-    maxPossibleHeight = screenHeight - bottomPosition - topMargin;
+  if (!isOpen) {
+    return (
+      <TouchableOpacity style={styles.floatingButton} onPress={toggleChat}>
+        <Text style={styles.floatingButtonText}>💬</Text>
+      </TouchableOpacity>
+    );
   }
-  
-  const chatHeight = Math.min(550, Math.max(0, maxPossibleHeight));
 
   return (
-    <>
-      {isOpen && (
-        <View style={[styles.popupContainer, { bottom: bottomPosition }]}>
-          <View style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
-            <View style={styles.header}>
-              <Text style={styles.headerText}>WhatsApp Chat</Text>
-              <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <View style={styles.chatWindow}>
+        <View style={styles.header}>
+          <Text style={styles.headerText}>WhatsApp Chat</Text>
+          <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
 
-            {!isChatStarted ? (
-              <View style={styles.phoneSetup}>
-                <Text style={styles.setupText}>
-                  Start a conversation with us! 💬
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  value={customerName}
-                  onChangeText={setCustomerName}
-                  label="Your name (optional)"
-                  autoCapitalize="words"
-                  style={styles.textInput}
-                />
-                <TextInput
-                  mode="outlined"
-                  value={customerPhone}
-                  onChangeText={setCustomerPhone}
-                  label="Your phone number (optional)"
-                  keyboardType="phone-pad"
-                  style={styles.textInput}
-                />
-                <Button
-                  mode="contained"
-                  onPress={startChat}
-                  style={styles.connectButton}
+        {!isChatStarted ? (
+          <View style={styles.setupContainer}>
+            <Text style={styles.setupText}>Start a conversation with us! 💬</Text>
+            <TextInput
+              mode="outlined"
+              value={customerName}
+              onChangeText={setCustomerName}
+              label="Your name (optional)"
+              autoCapitalize="words"
+              style={styles.textInput}
+            />
+            <TextInput
+              mode="outlined"
+              value={customerPhone}
+              onChangeText={setCustomerPhone}
+              label="Your phone number (optional)"
+              keyboardType="phone-pad"
+              style={styles.textInput}
+            />
+            <Button mode="contained" onPress={startChat} style={styles.connectButton}>
+              Start Chat
+            </Button>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.messagesContainer}
+              contentContainerStyle={styles.messagesContent}
+            >
+              {messages.map((message) => (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.messageWrapper,
+                    message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
+                  ]}
                 >
-                  Start Chat
-                </Button>
-              </View>
-            ) : (
-              <>
-                <ScrollView
-                  ref={scrollViewRef}
-                  style={styles.messagesContainer}
-                  contentContainerStyle={styles.messagesContent}
-                >
-                  {messages.map((message) => (
-                    <View
-                      key={message.id}
+                  <View
+                    style={[
+                      styles.messageBubble,
+                      message.isUser ? styles.userBubble : styles.botBubble,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.messageWrapper,
-                        message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
+                        styles.messageText,
+                        message.isUser ? styles.userMessageText : styles.botMessageText,
                       ]}
                     >
-                      <View
-                        style={[
-                          styles.messageBubble,
-                          message.isUser ? styles.userBubble : styles.botBubble,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.messageText,
-                            message.isUser ? styles.userMessageText : styles.botMessageText,
-                          ]}
-                        >
-                          {message.text}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </ScrollView>
-
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    mode="outlined"
-                    value={inputText}
-                    onChangeText={setInputText}
-                    placeholder="Type a message..."
-                    onSubmitEditing={sendMessage}
-                    returnKeyType="send"
-                    style={styles.input}
-                    multiline={false}
-                    maxLength={500}
-                  />
-                  <Button
-                    mode="contained"
-                    onPress={sendMessage}
-                    style={styles.sendButton}
-                  >
-                    Send
-                  </Button>
+                      {message.text}
+                    </Text>
+                  </View>
                 </View>
-              </>
-            )}
-          </View>
-        </View>
-      )}
+              ))}
+            </ScrollView>
 
-      <TouchableOpacity
-        style={styles.floatingButton}
-        onPress={toggleChat}
-      >
-        <Text style={styles.floatingButtonText}>
-          {isOpen ? '✕' : '💬'}
-        </Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                mode="outlined"
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Type a message..."
+                onSubmitEditing={sendMessage}
+                returnKeyType="send"
+                style={styles.input}
+                multiline={false}
+                maxLength={500}
+              />
+              <Button mode="contained" onPress={sendMessage} style={styles.sendButton}>
+                Send
+              </Button>
+            </View>
+          </>
+        )}
+      </View>
+
+      <TouchableOpacity style={styles.floatingButton} onPress={toggleChat}>
+        <Text style={styles.floatingButtonText}>✕</Text>
       </TouchableOpacity>
-    </>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  popupContainer: {
+  container: {
+    flex: 1,
+  },
+  chatWindow: {
     position: 'absolute',
     bottom: 80,
     right: 10,
     left: 10,
-    alignItems: 'center',
-    zIndex: 1000,
-    justifyContent: 'flex-end',
-    ...Platform.select({
-      web: {
-        position: 'fixed' as any,
-        left: 'auto' as any,
-        right: 30,
-        bottom: 100,
-      },
-    }),
-  },
-  chatWindow: {
+    height: 500,
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#fff',
     ...Platform.select({
-      web: {
-        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-      },
       default: {
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.2,
@@ -360,12 +298,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
-    borderRadius: 20,
   },
   closeButtonText: {
     color: '#fff',
     fontSize: 24,
-    fontWeight: '300',
   },
   messagesContainer: {
     flex: 1,
@@ -373,7 +309,6 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     padding: 16,
-    paddingBottom: 20,
   },
   messageWrapper: {
     width: '100%',
@@ -403,8 +338,6 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     lineHeight: 22,
-    flexShrink: 1,
-    flexWrap: 'wrap',
   },
   userMessageText: {
     color: '#000000',
@@ -420,19 +353,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     borderTopWidth: 1,
     borderTopColor: '#D1D1D1',
-    ...Platform.select({
-      android: {
-        paddingBottom: 16,
-      },
-    }),
   },
   input: {
     flex: 1,
-    maxHeight: 100,
     backgroundColor: '#FFFFFF',
   },
   sendButton: {
-    alignSelf: 'flex-end',
     backgroundColor: '#128C7E',
   },
   floatingButton: {
@@ -444,13 +370,8 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 999,
     backgroundColor: '#25D366',
     ...Platform.select({
-      web: {
-        position: 'fixed' as any,
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
-      },
       default: {
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
@@ -463,7 +384,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: '#fff',
   },
-  phoneSetup: {
+  setupContainer: {
     flex: 1,
     padding: 24,
     justifyContent: 'center',
