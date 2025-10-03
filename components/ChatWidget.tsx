@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   TouchableOpacity,
@@ -7,10 +7,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Text,
-} from 'react-native';
-import { TextInput, Button } from 'react-native-paper';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { TextInput, Button } from "react-native-paper";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Message {
   id: string;
@@ -21,25 +21,28 @@ interface Message {
 
 async function getOrCreateSessionId(): Promise<string> {
   try {
-    let sessionId = await AsyncStorage.getItem('chatSessionId');
+    let sessionId = await AsyncStorage.getItem("chatSessionId");
     if (!sessionId) {
-      sessionId = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-      await AsyncStorage.setItem('chatSessionId', sessionId);
+      sessionId =
+        "session_" + Math.random().toString(36).substr(2, 9) + "_" + Date.now();
+      await AsyncStorage.setItem("chatSessionId", sessionId);
     }
     return sessionId;
   } catch (error) {
-    return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+    return (
+      "session_" + Math.random().toString(36).substr(2, 9) + "_" + Date.now()
+    );
   }
 }
 
 export function ChatWidget() {
   const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -50,8 +53,8 @@ export function ChatWidget() {
     setIsChatStarted(true);
     setMessages([
       {
-        id: '1',
-        text: `Hi${customerName ? ' ' + customerName : ''}! 👋\n\nHow can we help you today? Your message will be sent directly to our WhatsApp.`,
+        id: "1",
+        text: `Hi${customerName ? " " + customerName : ""}! 👋\n\nHow can we help you today? Your message will be sent directly to our WhatsApp.`,
         isUser: false,
         timestamp: new Date(),
       },
@@ -62,10 +65,11 @@ export function ChatWidget() {
   };
 
   const connectToSSE = async (sessionId: string) => {
-    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    const backendUrl =
+      process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:3001";
     const pollUrl = `${backendUrl}/api/poll-replies?sessionId=${sessionId}`;
-    
-    console.log('🔄 Starting reply polling for session:', sessionId);
+
+    console.log("🔄 Starting reply polling for session:", sessionId);
 
     const pollForReplies = async () => {
       try {
@@ -77,7 +81,7 @@ export function ChatWidget() {
             data.replies.forEach((reply: any) => {
               const replyMessage: Message = {
                 id: Date.now().toString() + Math.random(),
-                text: '📱 ' + reply.message,
+                text: "📱 " + reply.message,
                 isUser: false,
                 timestamp: new Date(),
               };
@@ -86,7 +90,7 @@ export function ChatWidget() {
           }
         }
       } catch (error) {
-        console.error('❌ Polling error:', error);
+        console.error("❌ Polling error:", error);
       }
     };
 
@@ -97,7 +101,7 @@ export function ChatWidget() {
   };
 
   const sendMessage = async () => {
-    if (inputText.trim() === '') return;
+    if (inputText.trim() === "") return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -108,46 +112,47 @@ export function ChatWidget() {
 
     setMessages((prev) => [...prev, userMessage]);
     const messageToSend = inputText;
-    setInputText('');
+    setInputText("");
 
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl =
+        process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:3001";
       const sessionId = await getOrCreateSessionId();
-      
-      console.log('🔌 Sending message to backend:', backendUrl);
-        
+
+      console.log("🔌 Sending message to backend:", backendUrl);
+
       const response = await fetch(`${backendUrl}/api/send-message`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          customerName: customerName || 'Mobile App User',
+          customerName: customerName || "Mobile App User",
           customerEmail: customerPhone || undefined,
           message: messageToSend,
           sessionId: sessionId,
         }),
       });
 
-      console.log('📡 Backend response status:', response.status);
+      console.log("📡 Backend response status:", response.status);
 
       const data = await response.json();
-      
+
       if (data.success) {
         const confirmMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: '✓ Sent via WhatsApp',
+          text: "✓ Sent via WhatsApp",
           isUser: false,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, confirmMessage]);
       } else {
-        throw new Error(data.error || 'Failed to send');
+        throw new Error(data.error || "Failed to send");
       }
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: `Error: ${error instanceof Error ? error.message : 'Failed to send message'}`,
+        text: `Error: ${error instanceof Error ? error.message : "Failed to send message"}`,
         isUser: false,
         timestamp: new Date(),
       };
@@ -161,7 +166,10 @@ export function ChatWidget() {
 
   if (!isOpen) {
     return (
-      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 30 }]} onPress={toggleChat}>
+      <TouchableOpacity
+        style={[styles.floatingButton, { bottom: insets.bottom + 60 }]}
+        onPress={toggleChat}
+      >
         <Text style={styles.floatingButtonText}>💬</Text>
       </TouchableOpacity>
     );
@@ -169,10 +177,10 @@ export function ChatWidget() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <View style={[styles.chatWindow, { bottom: insets.bottom + 350 }]}>
+      <View style={[styles.chatWindow, { bottom: insets.bottom + 200 }]}>
         <View style={styles.header}>
           <Text style={styles.headerText}>WhatsApp Chat</Text>
           <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
@@ -182,7 +190,9 @@ export function ChatWidget() {
 
         {!isChatStarted ? (
           <View style={styles.setupContainer}>
-            <Text style={styles.setupText}>Start a conversation with us! 💬</Text>
+            <Text style={styles.setupText}>
+              Start a conversation with us! 💬
+            </Text>
             <TextInput
               mode="outlined"
               value={customerName}
@@ -199,7 +209,11 @@ export function ChatWidget() {
               keyboardType="phone-pad"
               style={styles.textInput}
             />
-            <Button mode="contained" onPress={startChat} style={styles.connectButton}>
+            <Button
+              mode="contained"
+              onPress={startChat}
+              style={styles.connectButton}
+            >
               Start Chat
             </Button>
           </View>
@@ -215,7 +229,9 @@ export function ChatWidget() {
                   key={message.id}
                   style={[
                     styles.messageWrapper,
-                    message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
+                    message.isUser
+                      ? styles.userMessageWrapper
+                      : styles.botMessageWrapper,
                   ]}
                 >
                   <View
@@ -227,7 +243,9 @@ export function ChatWidget() {
                     <Text
                       style={[
                         styles.messageText,
-                        message.isUser ? styles.userMessageText : styles.botMessageText,
+                        message.isUser
+                          ? styles.userMessageText
+                          : styles.botMessageText,
                       ]}
                     >
                       {message.text}
@@ -249,7 +267,11 @@ export function ChatWidget() {
                 multiline={false}
                 maxLength={500}
               />
-              <Button mode="contained" onPress={sendMessage} style={styles.sendButton}>
+              <Button
+                mode="contained"
+                onPress={sendMessage}
+                style={styles.sendButton}
+              >
                 Send
               </Button>
             </View>
@@ -257,7 +279,10 @@ export function ChatWidget() {
         )}
       </View>
 
-      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 30 }]} onPress={toggleChat}>
+      <TouchableOpacity
+        style={[styles.floatingButton, { bottom: insets.bottom + 60 }]}
+        onPress={toggleChat}
+      >
         <Text style={styles.floatingButtonText}>✕</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
@@ -266,22 +291,22 @@ export function ChatWidget() {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     zIndex: 1000,
-    pointerEvents: 'box-none',
+    pointerEvents: "box-none",
   },
   chatWindow: {
-    position: 'absolute',
+    position: "absolute",
     right: 10,
     left: 10,
     height: 450,
     borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
+    overflow: "hidden",
+    backgroundColor: "#fff",
     zIndex: 1001,
     ...Platform.select({
       default: {
@@ -293,54 +318,54 @@ const styles = StyleSheet.create({
     }),
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#128C7E',
+    backgroundColor: "#128C7E",
   },
   headerText: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
   closeButton: {
     padding: 8,
   },
   closeButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 24,
   },
   messagesContainer: {
     flex: 1,
-    backgroundColor: '#ECE5DD',
+    backgroundColor: "#ECE5DD",
   },
   messagesContent: {
     padding: 16,
   },
   messageWrapper: {
-    width: '100%',
+    width: "100%",
     marginBottom: 8,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   userMessageWrapper: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   botMessageWrapper: {
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: "80%",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 18,
   },
   userBubble: {
-    backgroundColor: '#DCF8C6',
+    backgroundColor: "#DCF8C6",
     borderBottomRightRadius: 4,
   },
   botBubble: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomLeftRadius: 4,
   },
   messageText: {
@@ -348,36 +373,36 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   userMessageText: {
-    color: '#000000',
+    color: "#000000",
   },
   botMessageText: {
-    color: '#000000',
+    color: "#000000",
   },
   inputContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 12,
     gap: 10,
-    alignItems: 'flex-end',
-    backgroundColor: '#F0F0F0',
+    alignItems: "flex-end",
+    backgroundColor: "#F0F0F0",
     borderTopWidth: 1,
-    borderTopColor: '#D1D1D1',
+    borderTopColor: "#D1D1D1",
   },
   input: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   sendButton: {
-    backgroundColor: '#128C7E',
+    backgroundColor: "#128C7E",
   },
   floatingButton: {
-    position: 'absolute',
+    position: "absolute",
     right: 20,
     width: 64,
     height: 64,
     borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#25D366',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#25D366",
     zIndex: 1002,
     ...Platform.select({
       default: {
@@ -390,28 +415,28 @@ const styles = StyleSheet.create({
   },
   floatingButtonText: {
     fontSize: 32,
-    color: '#fff',
+    color: "#fff",
   },
   setupContainer: {
     flex: 1,
     padding: 24,
-    justifyContent: 'center',
+    justifyContent: "center",
     gap: 16,
-    backgroundColor: '#ECE5DD',
+    backgroundColor: "#ECE5DD",
   },
   setupText: {
     fontSize: 18,
     marginBottom: 16,
-    textAlign: 'center',
-    color: '#333',
-    fontWeight: '500',
+    textAlign: "center",
+    color: "#333",
+    fontWeight: "500",
   },
   textInput: {
     marginBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   connectButton: {
     marginTop: 16,
-    backgroundColor: '#25D366',
+    backgroundColor: "#25D366",
   },
 });
