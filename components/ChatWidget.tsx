@@ -35,7 +35,7 @@ async function getOrCreateSessionId(): Promise<string> {
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -122,7 +122,7 @@ export function ChatWidget() {
         },
         body: JSON.stringify({
           customerName: customerName || 'Mobile App User',
-          customerEmail: customerEmail || undefined,
+          customerEmail: customerPhone || undefined,
           message: messageToSend,
           sessionId: sessionId,
         }),
@@ -160,13 +160,18 @@ export function ChatWidget() {
 
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
-  const chatWidth = Math.min(screenWidth - 40, 380);
-  const chatHeight = Math.min(screenHeight - 140, 550);
+  const chatWidth = Math.min(screenWidth - 20, 380);
+  const maxChatHeight = screenHeight - 150;
+  const chatHeight = Math.min(maxChatHeight, 550);
 
   return (
     <>
       {isOpen && (
-        <View style={styles.popupContainer}>
+        <KeyboardAvoidingView
+          style={styles.popupContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
           <View style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
             <View style={styles.header}>
               <Text style={styles.headerText}>WhatsApp Chat</Text>
@@ -190,11 +195,10 @@ export function ChatWidget() {
                 />
                 <TextInput
                   mode="outlined"
-                  value={customerEmail}
-                  onChangeText={setCustomerEmail}
-                  label="Your email (optional)"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
+                  value={customerPhone}
+                  onChangeText={setCustomerPhone}
+                  label="Your phone number (optional)"
+                  keyboardType="phone-pad"
                   style={styles.textInput}
                 />
                 <Button
@@ -206,44 +210,39 @@ export function ChatWidget() {
                 </Button>
               </View>
             ) : (
-              <ScrollView
-                ref={scrollViewRef}
-                style={styles.messagesContainer}
-                contentContainerStyle={styles.messagesContent}
-              >
-                {messages.map((message) => (
-                  <View
-                    key={message.id}
-                    style={[
-                      styles.messageWrapper,
-                      message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
-                    ]}
-                  >
+              <>
+                <ScrollView
+                  ref={scrollViewRef}
+                  style={styles.messagesContainer}
+                  contentContainerStyle={styles.messagesContent}
+                >
+                  {messages.map((message) => (
                     <View
+                      key={message.id}
                       style={[
-                        styles.messageBubble,
-                        message.isUser ? styles.userBubble : styles.botBubble,
+                        styles.messageWrapper,
+                        message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
                       ]}
                     >
-                      <Text
+                      <View
                         style={[
-                          styles.messageText,
-                          message.isUser ? styles.userMessageText : styles.botMessageText,
+                          styles.messageBubble,
+                          message.isUser ? styles.userBubble : styles.botBubble,
                         ]}
                       >
-                        {message.text}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.messageText,
+                            message.isUser ? styles.userMessageText : styles.botMessageText,
+                          ]}
+                        >
+                          {message.text}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
+                  ))}
+                </ScrollView>
 
-            {isChatStarted && (
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={100}
-              >
                 <View style={styles.inputContainer}>
                   <TextInput
                     mode="outlined"
@@ -264,10 +263,10 @@ export function ChatWidget() {
                     Send
                   </Button>
                 </View>
-              </KeyboardAvoidingView>
+              </>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       )}
 
       <TouchableOpacity
@@ -285,15 +284,20 @@ export function ChatWidget() {
 const styles = StyleSheet.create({
   popupContainer: {
     position: 'absolute',
-    bottom: 90,
-    right: 20,
-    left: 20,
+    top: 10,
+    bottom: 80,
+    right: 10,
+    left: 10,
     alignItems: 'center',
     zIndex: 1000,
+    justifyContent: 'flex-end',
     ...Platform.select({
       web: {
         position: 'fixed' as any,
         left: 'auto' as any,
+        right: 30,
+        top: 'auto' as any,
+        bottom: 100,
       },
     }),
   },
