@@ -264,7 +264,13 @@ export function ChatWidget() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    pointerEvents: 'box-none',
   },
   chatWindow: {
     position: 'absolute',
@@ -275,6 +281,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#fff',
+    zIndex: 1001,
     ...Platform.select({
       default: {
         shadowOffset: { width: 0, height: 10 },
@@ -371,6 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#25D366',
+    zIndex: 1002,
     ...Platform.select({
       default: {
         shadowOffset: { width: 0, height: 4 },
