@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Message {
   id: string;
@@ -32,6 +33,7 @@ async function getOrCreateSessionId(): Promise<string> {
 }
 
 export function ChatWidget() {
+  const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -159,7 +161,7 @@ export function ChatWidget() {
 
   if (!isOpen) {
     return (
-      <TouchableOpacity style={styles.floatingButton} onPress={toggleChat}>
+      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 20 }]} onPress={toggleChat}>
         <Text style={styles.floatingButtonText}>💬</Text>
       </TouchableOpacity>
     );
@@ -170,7 +172,7 @@ export function ChatWidget() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.chatWindow}>
+      <View style={[styles.chatWindow, { bottom: insets.bottom + 80 }]}>
         <View style={styles.header}>
           <Text style={styles.headerText}>WhatsApp Chat</Text>
           <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
@@ -255,7 +257,7 @@ export function ChatWidget() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.floatingButton} onPress={toggleChat}>
+      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 20 }]} onPress={toggleChat}>
         <Text style={styles.floatingButtonText}>✕</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
@@ -274,7 +276,6 @@ const styles = StyleSheet.create({
   },
   chatWindow: {
     position: 'absolute',
-    bottom: 140,
     right: 10,
     left: 10,
     height: 450,
@@ -370,7 +371,6 @@ const styles = StyleSheet.create({
   },
   floatingButton: {
     position: 'absolute',
-    bottom: 20,
     right: 20,
     width: 64,
     height: 64,
