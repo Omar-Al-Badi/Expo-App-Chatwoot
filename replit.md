@@ -23,9 +23,9 @@ Preferred communication style: Simple, everyday language.
 
 **Key Architectural Decisions**:
 
-- **Chat widget UI**: Floating button in bottom-right corner that opens chat window
-- **Customer info collection**: Optional name and email fields before starting chat
-- **Message display**: User messages (right-aligned, blue) and system messages (left-aligned, gray)
+- **Chat widget UI**: Floating button in bottom-right corner that opens chat window with WhatsApp-inspired design
+- **Customer info collection**: Optional name and phone number fields before starting chat
+- **Message display**: User messages (light green bubbles) and system messages (white bubbles) on beige background
 - **Session management**: Unique sessionId generated and persisted in localStorage for conversation continuity
 - **Real-time updates**: Server-Sent Events (SSE) connection for receiving owner replies in real-time
 - **Backend communication**: Proxy API endpoints (/api/send-message, /api/events) forward to backend on port 3001
@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 **Solution**: Express.js server (v5.1.0) running on port 3001 with WhatsApp Web.js client.
 
 **Message Flow Design**:
-- Customer enters optional name/email and types a message on the website
+- Customer enters optional name/phone number and types a message on the website
 - Backend captures the authenticated business WhatsApp number on client ready
 - Messages are sent TO the business WhatsApp (not to customer phone numbers)
 - Each message is formatted with customer info, message content, timestamp, and unique session tag (e.g., [#AB12])
@@ -59,7 +59,7 @@ Preferred communication style: Simple, everyday language.
 - **Multi-client support**: Multiple browser tabs/devices for same customer all receive replies via broadcast
 - **Offline queuing**: Replies are queued when customer is offline and delivered on reconnection
 - **Session lifecycle**: 7-day TTL based on last activity (send, reply, or SSE connect); automatic cleanup of expired sessions
-- **Message formatting**: Structured format with customer name, email (optional), message, timestamp, and session tag
+- **Message formatting**: Structured format with customer name, phone/email (optional), message, timestamp, and session tag
 - **Headless browser**: Chromium with optimized flags for containerized/Replit environments
 - **Dynamic executable path**: Auto-detects Chromium installation or uses Puppeteer's bundled version
 - **CORS enabled**: Allows cross-origin requests for frontend-backend communication
@@ -108,3 +108,4 @@ Preferred communication style: Simple, everyday language.
 - **React Native Paper**: Material Design component library for cross-platform UI
 - **AsyncStorage**: Session persistence for mobile
 - **Polling mechanism**: 3-second intervals to fetch replies (SSE not supported in React Native)
+- **Mobile optimizations**: Dynamic height calculation to prevent cropping, KeyboardAvoidingView for better typing experience, phone number input optimized for mobile keyboards
