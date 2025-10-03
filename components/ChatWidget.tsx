@@ -9,7 +9,7 @@ import {
   Dimensions,
   Text,
 } from 'react-native';
-import { TextInput, Button, Card } from 'react-native-paper';
+import { TextInput, Button } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Message {
@@ -167,7 +167,7 @@ export function ChatWidget() {
     <>
       {isOpen && (
         <View style={styles.popupContainer}>
-          <Card style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
+          <View style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
             <View style={styles.header}>
               <Text style={styles.headerText}>WhatsApp Chat</Text>
               <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
@@ -266,7 +266,7 @@ export function ChatWidget() {
                 </View>
               </KeyboardAvoidingView>
             )}
-          </Card>
+          </View>
         </View>
       )}
 
