@@ -172,7 +172,7 @@ export function ChatWidget() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={[styles.chatWindow, { bottom: insets.bottom + 200 }]}>
+      <View style={[styles.chatWindow, { bottom: insets.bottom + 350 }]}>
         <View style={styles.header}>
           <Text style={styles.headerText}>WhatsApp Chat</Text>
           <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
