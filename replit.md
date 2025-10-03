@@ -103,5 +103,8 @@ Preferred communication style: Simple, everyday language.
 - **Puppeteer** (via whatsapp-web.js): Chromium automation for WhatsApp Web session
 - Dynamic Chromium executable detection for Replit/container environments
 
-## Legacy Dependencies (from React Native prototype)
-- Expo SDK, React Native, and related packages (not actively used in current web implementation)
+## Mobile App (React Native)
+- **Expo SDK**: React Native development framework
+- **React Native Paper**: Material Design component library for cross-platform UI
+- **AsyncStorage**: Session persistence for mobile
+- **Polling mechanism**: 3-second intervals to fetch replies (SSE not supported in React Native)
