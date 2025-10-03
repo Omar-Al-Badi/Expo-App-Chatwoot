@@ -161,7 +161,7 @@ export function ChatWidget() {
 
   if (!isOpen) {
     return (
-      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 20 }]} onPress={toggleChat}>
+      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 30 }]} onPress={toggleChat}>
         <Text style={styles.floatingButtonText}>💬</Text>
       </TouchableOpacity>
     );
@@ -172,7 +172,7 @@ export function ChatWidget() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={[styles.chatWindow, { bottom: insets.bottom + 80 }]}>
+      <View style={[styles.chatWindow, { bottom: insets.bottom + 120 }]}>
         <View style={styles.header}>
           <Text style={styles.headerText}>WhatsApp Chat</Text>
           <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
@@ -257,7 +257,7 @@ export function ChatWidget() {
         )}
       </View>
 
-      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 20 }]} onPress={toggleChat}>
+      <TouchableOpacity style={[styles.floatingButton, { bottom: insets.bottom + 30 }]} onPress={toggleChat}>
         <Text style={styles.floatingButtonText}>✕</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
