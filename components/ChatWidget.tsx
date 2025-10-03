@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
   chatWindow: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 100,
     right: 10,
     left: 10,
     height: 500,
