@@ -1,14 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
 } from 'react-native';
-import { TextInput, Button, Card, Text } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
@@ -34,6 +33,31 @@ async function getOrCreateSessionId(): Promise<string> {
   }
 }
 
+const hardcodedResponses: { [key: string]: string } = {
+  hello: "Hey there! How can I help you today?",
+  hi: "Hello! What's on your mind?",
+  help: "I'm here to assist you! Try asking me about the weather, time, or just say hello!",
+  weather: "It's a beautiful day today! ☀️ Perfect weather for coding!",
+  time: `The current time is ${new Date().toLocaleTimeString()}`,
+  "how are you": "I'm doing great, thanks for asking! How about you?",
+  thanks: "You're welcome! Happy to help!",
+  thank: "You're welcome! Happy to help!",
+  bye: "Goodbye! Have a great day! 👋",
+  default: "That's interesting! Tell me more, or try asking about the weather or time!",
+};
+
+function getResponse(message: string): string {
+  const lowerMessage = message.toLowerCase().trim();
+  
+  for (const [key, response] of Object.entries(hardcodedResponses)) {
+    if (lowerMessage.includes(key)) {
+      return response;
+    }
+  }
+  
+  return hardcodedResponses.default;
+}
+
 export function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -43,7 +67,10 @@ export function ChatWidget() {
   const [inputText, setInputText] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
   
+  const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
+  const textColor = useThemeColor({}, 'text');
+  const borderColor = useThemeColor({ light: '#ccc', dark: '#444' }, 'icon');
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -162,53 +189,61 @@ export function ChatWidget() {
     setIsOpen(!isOpen);
   };
 
-  const screenWidth = Dimensions.get('window').width;
-  const screenHeight = Dimensions.get('window').height;
-  const chatWidth = Math.min(screenWidth - 40, 380);
-  const chatHeight = Math.min(screenHeight - 140, 550);
-
   return (
     <>
       {isOpen && (
         <View style={styles.popupContainer}>
-          <Card style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
+          <ThemedView style={styles.chatWindow}>
             <View style={[styles.header, { backgroundColor: tintColor }]}>
-              <Text style={styles.headerText}>WhatsApp Chat</Text>
+              <ThemedText style={styles.headerText}>WhatsApp Chat</ThemedText>
               <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
+                <ThemedText style={styles.closeButtonText}>✕</ThemedText>
               </TouchableOpacity>
             </View>
 
             {!isChatStarted ? (
               <View style={styles.phoneSetup}>
-                <Text style={styles.setupText}>
+                <ThemedText style={styles.setupText}>
                   Start a conversation with us! 💬
-                </Text>
+                </ThemedText>
                 <TextInput
-                  mode="outlined"
+                  style={[
+                    styles.phoneInput,
+                    {
+                      backgroundColor,
+                      color: textColor,
+                      borderColor,
+                    },
+                  ]}
                   value={customerName}
                   onChangeText={setCustomerName}
-                  label="Your name (optional)"
+                  placeholder="Your name (optional)"
+                  placeholderTextColor={borderColor}
                   autoCapitalize="words"
-                  style={styles.textInput}
                 />
                 <TextInput
-                  mode="outlined"
+                  style={[
+                    styles.phoneInput,
+                    {
+                      backgroundColor,
+                      color: textColor,
+                      borderColor,
+                      marginTop: 10,
+                    },
+                  ]}
                   value={customerEmail}
                   onChangeText={setCustomerEmail}
-                  label="Your email (optional)"
+                  placeholder="Your email (optional)"
+                  placeholderTextColor={borderColor}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  style={styles.textInput}
                 />
-                <Button
-                  mode="contained"
+                <TouchableOpacity
+                  style={[styles.connectButton, { backgroundColor: '#25D366' }]}
                   onPress={startChat}
-                  style={styles.connectButton}
-                  buttonColor="#25D366"
                 >
-                  Start Chat
-                </Button>
+                  <ThemedText style={styles.connectButtonText}>Start Chat</ThemedText>
+                </TouchableOpacity>
               </View>
             ) : (
               <ScrollView
@@ -216,63 +251,62 @@ export function ChatWidget() {
                 style={styles.messagesContainer}
                 contentContainerStyle={styles.messagesContent}
               >
-                {messages.map((message) => (
-                  <View
-                    key={message.id}
+              {messages.map((message) => (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.messageBubble,
+                    message.isUser ? styles.userBubble : styles.botBubble,
+                    {
+                      backgroundColor: message.isUser ? '#007AFF' : borderColor,
+                    },
+                  ]}
+                >
+                  <ThemedText
                     style={[
-                      styles.messageWrapper,
-                      message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
+                      styles.messageText,
+                      message.isUser && { color: '#FFFFFF' },
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.messageBubble,
-                        message.isUser ? styles.userBubble : styles.botBubble,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.messageText,
-                          message.isUser ? styles.userMessageText : styles.botMessageText,
-                        ]}
-                      >
-                        {message.text}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+                    {message.text}
+                  </ThemedText>
+                </View>
+              ))}
               </ScrollView>
             )}
 
             {isChatStarted && (
               <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={100}
-              >
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    mode="outlined"
-                    value={inputText}
-                    onChangeText={setInputText}
-                    placeholder="Type a message..."
-                    onSubmitEditing={sendMessage}
-                    returnKeyType="send"
-                    style={styles.input}
-                    multiline
-                    maxLength={500}
-                  />
-                  <Button
-                    mode="contained"
-                    onPress={sendMessage}
-                    style={styles.sendButton}
-                    buttonColor="#007AFF"
-                  >
-                    Send
-                  </Button>
-                </View>
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={100}
+            >
+              <View style={[styles.inputContainer, { borderTopColor: borderColor }]}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor,
+                      color: textColor,
+                      borderColor,
+                    },
+                  ]}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Type a message..."
+                  placeholderTextColor={borderColor}
+                  onSubmitEditing={sendMessage}
+                  returnKeyType="send"
+                />
+                <TouchableOpacity
+                  style={[styles.sendButton, { backgroundColor: '#007AFF' }]}
+                  onPress={sendMessage}
+                >
+                  <ThemedText style={styles.sendButtonText}>Send</ThemedText>
+                </TouchableOpacity>
+              </View>
               </KeyboardAvoidingView>
             )}
-          </Card>
+          </ThemedView>
         </View>
       )}
 
@@ -293,17 +327,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 90,
     right: 20,
-    left: 20,
-    alignItems: 'center',
     zIndex: 1000,
     ...Platform.select({
       web: {
         position: 'fixed' as any,
-        left: 'auto' as any,
       },
     }),
   },
   chatWindow: {
+    width: 350,
+    height: 500,
     borderRadius: 15,
     overflow: 'hidden',
     ...Platform.select({
@@ -341,60 +374,48 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
-    padding: 12,
-    paddingBottom: 20,
-  },
-  messageWrapper: {
-    width: '100%',
-    marginBottom: 10,
-    flexDirection: 'row',
-  },
-  userMessageWrapper: {
-    justifyContent: 'flex-end',
-  },
-  botMessageWrapper: {
-    justifyContent: 'flex-start',
+    padding: 15,
   },
   messageBubble: {
-    maxWidth: '75%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: '80%',
+    padding: 12,
     borderRadius: 15,
+    marginBottom: 10,
   },
   userBubble: {
-    backgroundColor: '#007AFF',
+    alignSelf: 'flex-end',
     borderBottomRightRadius: 5,
   },
   botBubble: {
-    backgroundColor: '#E8E8E8',
+    alignSelf: 'flex-start',
     borderBottomLeftRadius: 5,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 20,
-    flexShrink: 1,
-    flexWrap: 'wrap',
-  },
-  userMessageText: {
-    color: '#FFFFFF',
-  },
-  botMessageText: {
-    color: '#000000',
+    fontSize: 16,
   },
   inputContainer: {
     flexDirection: 'row',
     padding: 10,
-    gap: 8,
-    alignItems: 'flex-end',
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    maxHeight: 100,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginRight: 10,
+    fontSize: 16,
   },
   sendButton: {
-    alignSelf: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  sendButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   floatingButton: {
     position: 'absolute',
@@ -427,17 +448,28 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'center',
-    gap: 12,
   },
   setupText: {
     fontSize: 16,
-    marginBottom: 10,
+    marginBottom: 15,
     textAlign: 'center',
   },
-  textInput: {
-    marginBottom: 10,
+  phoneInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 15,
+    fontSize: 16,
   },
   connectButton: {
-    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  connectButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
