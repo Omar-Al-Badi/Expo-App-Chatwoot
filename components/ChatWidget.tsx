@@ -7,12 +7,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  Text,
 } from 'react-native';
-import { TextInput, Button, Card, Text } from 'react-native-paper';
+import { TextInput, Button, Card } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemedText } from './ThemedText';
-import { ThemedView } from './ThemedView';
-import { useThemeColor } from '@/hooks/useThemeColor';
 
 interface Message {
   id: string;
@@ -42,8 +40,6 @@ export function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
-  
-  const tintColor = useThemeColor({}, 'tint');
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -172,7 +168,7 @@ export function ChatWidget() {
       {isOpen && (
         <View style={styles.popupContainer}>
           <Card style={[styles.chatWindow, { width: chatWidth, height: chatHeight }]}>
-            <View style={[styles.header, { backgroundColor: tintColor }]}>
+            <View style={styles.header}>
               <Text style={styles.headerText}>WhatsApp Chat</Text>
               <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>✕</Text>
@@ -205,7 +201,6 @@ export function ChatWidget() {
                   mode="contained"
                   onPress={startChat}
                   style={styles.connectButton}
-                  buttonColor="#25D366"
                 >
                   Start Chat
                 </Button>
@@ -265,7 +260,6 @@ export function ChatWidget() {
                     mode="contained"
                     onPress={sendMessage}
                     style={styles.sendButton}
-                    buttonColor="#007AFF"
                   >
                     Send
                   </Button>
@@ -277,12 +271,12 @@ export function ChatWidget() {
       )}
 
       <TouchableOpacity
-        style={[styles.floatingButton, { backgroundColor: tintColor }]}
+        style={styles.floatingButton}
         onPress={toggleChat}
       >
-        <ThemedText style={styles.floatingButtonText}>
+        <Text style={styles.floatingButtonText}>
           {isOpen ? '✕' : '💬'}
-        </ThemedText>
+        </Text>
       </TouchableOpacity>
     </>
   );
@@ -304,17 +298,18 @@ const styles = StyleSheet.create({
     }),
   },
   chatWindow: {
-    borderRadius: 15,
+    borderRadius: 20,
     overflow: 'hidden',
+    backgroundColor: '#fff',
     ...Platform.select({
       web: {
-        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
+        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
       },
       default: {
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 10,
       },
     }),
   },
@@ -322,31 +317,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    padding: 20,
+    backgroundColor: '#128C7E',
   },
   headerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#fff',
   },
   closeButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
   },
   closeButtonText: {
     color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '300',
   },
   messagesContainer: {
     flex: 1,
+    backgroundColor: '#ECE5DD',
   },
   messagesContent: {
-    padding: 12,
+    padding: 16,
     paddingBottom: 20,
   },
   messageWrapper: {
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 8,
     flexDirection: 'row',
   },
   userMessageWrapper: {
@@ -356,88 +354,97 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   messageBubble: {
-    maxWidth: '75%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 15,
+    maxWidth: '80%',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
   },
   userBubble: {
-    backgroundColor: '#007AFF',
-    borderBottomRightRadius: 5,
+    backgroundColor: '#DCF8C6',
+    borderBottomRightRadius: 4,
   },
   botBubble: {
-    backgroundColor: '#E8E8E8',
-    borderBottomLeftRadius: 5,
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 4,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 22,
     flexShrink: 1,
     flexWrap: 'wrap',
   },
   userMessageText: {
-    color: '#FFFFFF',
+    color: '#000000',
   },
   botMessageText: {
     color: '#000000',
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 10,
-    gap: 8,
+    padding: 12,
+    gap: 10,
     alignItems: 'flex-end',
+    backgroundColor: '#F0F0F0',
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#D1D1D1',
   },
   input: {
     flex: 1,
     maxHeight: 100,
+    backgroundColor: '#FFFFFF',
   },
   sendButton: {
     alignSelf: 'flex-end',
+    backgroundColor: '#128C7E',
   },
   floatingButton: {
     position: 'absolute',
     bottom: 20,
     right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
+    backgroundColor: '#25D366',
     ...Platform.select({
       web: {
         position: 'fixed' as any,
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
       },
       default: {
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 8,
       },
     }),
   },
   floatingButtonText: {
-    fontSize: 28,
+    fontSize: 32,
     color: '#fff',
   },
   phoneSetup: {
     flex: 1,
-    padding: 20,
+    padding: 24,
     justifyContent: 'center',
-    gap: 12,
+    gap: 16,
+    backgroundColor: '#ECE5DD',
   },
   setupText: {
-    fontSize: 16,
-    marginBottom: 10,
+    fontSize: 18,
+    marginBottom: 16,
     textAlign: 'center',
+    color: '#333',
+    fontWeight: '500',
   },
   textInput: {
-    marginBottom: 10,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
   },
   connectButton: {
-    marginTop: 10,
+    marginTop: 16,
+    backgroundColor: '#25D366',
   },
 });
