@@ -274,10 +274,10 @@ const styles = StyleSheet.create({
   },
   chatWindow: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 140,
     right: 10,
     left: 10,
-    height: 500,
+    height: 450,
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#fff',
