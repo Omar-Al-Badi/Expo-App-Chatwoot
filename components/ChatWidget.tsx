@@ -179,9 +179,8 @@ export function ChatWidget() {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <View style={[styles.chatWindow, { bottom: insets.bottom + 60 }]}>
+      <View style={[styles.chatWindow, { bottom: insets.bottom + 200 }]}>
         <View style={styles.header}>
           <Text style={styles.headerText}>WhatsApp Chat</Text>
           <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
@@ -190,11 +189,7 @@ export function ChatWidget() {
         </View>
 
         {!isChatStarted ? (
-          <ScrollView 
-            style={styles.setupContainer}
-            contentContainerStyle={styles.setupContent}
-            keyboardShouldPersistTaps="handled"
-          >
+          <View style={styles.setupContainer}>
             <Text style={styles.setupText}>
               Start a conversation with us! 💬
             </Text>
@@ -221,14 +216,13 @@ export function ChatWidget() {
             >
               Start Chat
             </Button>
-          </ScrollView>
+          </View>
         ) : (
           <>
             <ScrollView
               ref={scrollViewRef}
               style={styles.messagesContainer}
               contentContainerStyle={styles.messagesContent}
-              keyboardShouldPersistTaps="handled"
             >
               {messages.map((message) => (
                 <View
@@ -425,12 +419,10 @@ const styles = StyleSheet.create({
   },
   setupContainer: {
     flex: 1,
-    backgroundColor: "#ECE5DD",
-  },
-  setupContent: {
     padding: 24,
     justifyContent: "center",
     gap: 16,
+    backgroundColor: "#ECE5DD",
   },
   setupText: {
     fontSize: 18,
