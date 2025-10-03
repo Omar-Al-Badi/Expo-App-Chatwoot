@@ -355,7 +355,7 @@ app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
     
     const formattedMessage = `🔔 *New Website Inquiry* [#${sessionTag}]\n\n` +
       `👤 From: ${customerName || 'Anonymous'}\n` +
-      `${customerEmail ? `📧 Email: ${customerEmail}\n` : ''}` +
+      `${customerEmail ? `📱 Phone: ${customerEmail}\n` : ''}` +
       `\n💬 Message:\n${message}\n\n` +
       `⏰ ${new Date().toLocaleString()}`;
 
