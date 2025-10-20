@@ -136,6 +136,24 @@ export function ChatWidget() {
 
       console.log("📡 Backend response status:", response.status);
 
+      if (!response.ok) {
+        let errorMsg = `Server error: ${response.status}`;
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorMsg;
+          } else {
+            const text = await response.text();
+            console.error("Non-JSON response:", text.substring(0, 100));
+            errorMsg = "Server returned an error. Please try again.";
+          }
+        } catch (e) {
+          console.error("Error parsing error response:", e);
+        }
+        throw new Error(errorMsg);
+      }
+
       const data = await response.json();
 
       if (data.success) {
