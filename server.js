@@ -131,7 +131,17 @@ async function sendWahaMessage(chatId, text) {
 // Check Waha session status
 async function checkWahaStatus() {
   try {
-    const sessionData = await wahaRequest(`/api/sessions/${WAHA_SESSION}`);
+    // Get all sessions and find ours
+    const sessions = await wahaRequest('/api/sessions');
+    const sessionData = sessions.find(s => s.name === WAHA_SESSION);
+    
+    if (!sessionData) {
+      console.log(`⚠️ Session "${WAHA_SESSION}" not found. Available sessions:`, sessions.map(s => s.name));
+      isClientReady = false;
+      return false;
+    }
+    
+    console.log('📊 Session status:', sessionData.status);
     
     if (sessionData.status === 'WORKING') {
       isClientReady = true;
@@ -151,6 +161,7 @@ async function checkWahaStatus() {
     } else {
       isClientReady = false;
       qrCodeData = null;
+      console.log(`⏸️ Session status: ${sessionData.status}`);
       return false;
     }
   } catch (error) {
