@@ -1,15 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const { execSync } = require('child_process');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = 3001;
 
-let whatsappClient;
+// Waha configuration
+const WAHA_BASE_URL = process.env.WAHA_BASE_URL || 'http://178.128.116.119:3009';
+const WAHA_SESSION = process.env.WAHA_SESSION || 'default';
+const WAHA_API_KEY = process.env.WAHA_API_KEY || '';
+
 let isClientReady = false;
 let qrCodeData = null;
 let businessWhatsAppNumber = null;
@@ -90,120 +91,148 @@ const sendMessageRateLimit = rateLimit({
   validate: { trustProxy: false }
 });
 
-// Find Chromium executable path dynamically
-const getChromiumPath = () => {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
-  try {
-    const chromiumPath = execSync('which chromium || which chromium-browser', { encoding: 'utf8' }).trim();
-    return chromiumPath;
-  } catch (error) {
-    console.warn('Could not find Chromium in PATH, puppeteer will download its own');
-    return undefined;
-  }
-};
-
-// Initialize WhatsApp client with session persistence
-whatsappClient = new Client({
-  authStrategy: new LocalAuth({
-    clientId: 'whatsapp-session'
-  }),
-  puppeteer: {
-    headless: true,
-    executablePath: getChromiumPath(),
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--disable-gpu'
-    ]
-  }
-});
-
-// QR Code event - display in terminal and store for API
-whatsappClient.on('qr', (qr) => {
-  console.log('QR Code received! Scan this with WhatsApp:');
-  qrcode.generate(qr, { small: true });
-  qrCodeData = qr;
-  isClientReady = false;
-});
-
-// Client ready event
-whatsappClient.on('ready', async () => {
-  console.log('WhatsApp client is ready!');
-  isClientReady = true;
-  qrCodeData = null;
+// Helper function to make Waha API requests
+async function wahaRequest(endpoint, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers
+  };
   
-  // Get the authenticated WhatsApp number (business owner's number)
-  if (whatsappClient.info) {
-    businessWhatsAppNumber = whatsappClient.info.wid.user;
-    console.log('📱 Business WhatsApp Number:', businessWhatsAppNumber);
+  if (WAHA_API_KEY) {
+    headers['X-Api-Key'] = WAHA_API_KEY;
   }
-});
 
-// Authentication success event
-whatsappClient.on('authenticated', () => {
-  console.log('WhatsApp client authenticated successfully');
-});
+  const url = `${WAHA_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
 
-// Authentication failure event
-whatsappClient.on('auth_failure', (msg) => {
-  console.error('Authentication failed:', msg);
-  isClientReady = false;
-});
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Waha API error: ${response.status} - ${errorText}`);
+  }
 
-// Disconnected event
-whatsappClient.on('disconnected', (reason) => {
-  console.log('WhatsApp client disconnected:', reason);
-  isClientReady = false;
-});
+  return response.json();
+}
 
-// Use message_create instead of message for better reliability
-whatsappClient.on('message_create', async (message) => {
+// Send message via Waha
+async function sendWahaMessage(chatId, text) {
+  return await wahaRequest('/api/sendText', {
+    method: 'POST',
+    body: JSON.stringify({
+      session: WAHA_SESSION,
+      chatId: chatId,
+      text: text
+    })
+  });
+}
+
+// Check Waha session status
+async function checkWahaStatus() {
   try {
-    console.log('📩 WhatsApp message_create detected:', {
-      fromMe: message.fromMe,
-      from: message.from,
-      body: message.body?.substring(0, 50),
-      hasQuotedMsg: message.hasQuotedMsg
+    const sessionData = await wahaRequest(`/api/sessions/${WAHA_SESSION}`);
+    
+    if (sessionData.status === 'WORKING') {
+      isClientReady = true;
+      qrCodeData = null;
+      
+      // Get business WhatsApp number from session info
+      if (sessionData.me && sessionData.me.id) {
+        businessWhatsAppNumber = sessionData.me.id.split('@')[0];
+        console.log('📱 Business WhatsApp Number:', businessWhatsAppNumber);
+      }
+      return true;
+    } else if (sessionData.status === 'SCAN_QR_CODE' && sessionData.qr) {
+      isClientReady = false;
+      qrCodeData = sessionData.qr;
+      console.log('🔄 QR Code available, please scan');
+      return false;
+    } else {
+      isClientReady = false;
+      qrCodeData = null;
+      return false;
+    }
+  } catch (error) {
+    console.error('Error checking Waha status:', error.message);
+    isClientReady = false;
+    return false;
+  }
+}
+
+// Initialize and check status periodically
+async function initializeWaha() {
+  console.log('Initializing Waha connection...');
+  console.log('Waha URL:', WAHA_BASE_URL);
+  console.log('Session:', WAHA_SESSION);
+  
+  await checkWahaStatus();
+  
+  // Check status every 10 seconds
+  setInterval(async () => {
+    await checkWahaStatus();
+  }, 10000);
+}
+
+// Webhook endpoint to receive messages from Waha
+app.post('/webhook/waha', async (req, res) => {
+  try {
+    const event = req.body;
+    console.log('📩 Waha webhook received:', {
+      event: event.event,
+      session: event.session,
+      payload: event.payload ? {
+        from: event.payload.from,
+        fromMe: event.payload.fromMe,
+        body: event.payload.body?.substring(0, 50)
+      } : null
     });
 
-    if (!message.fromMe) {
-      console.log('⏭️ Skipping message (not from business owner)');
-      return;
+    // Only process message events
+    if (event.event !== 'message' && event.event !== 'message.any') {
+      return res.json({ success: true });
     }
 
-    if (!businessWhatsAppNumber) return;
+    const message = event.payload;
+    
+    // Only process messages from business owner (fromMe: true)
+    if (!message.fromMe) {
+      console.log('⏭️ Skipping message (not from business owner)');
+      return res.json({ success: true });
+    }
+
+    if (!businessWhatsAppNumber) {
+      return res.json({ success: true });
+    }
     
     const chatId = `${businessWhatsAppNumber}@c.us`;
-    if (message.from !== chatId) return;
+    if (message.from !== chatId) {
+      return res.json({ success: true });
+    }
 
-    if (message.id && message.id._serialized && inquiriesByMsgId.has(message.id._serialized)) {
-      return;
+    // Skip if this is our own inquiry message
+    if (message.id && inquiriesByMsgId.has(message.id)) {
+      return res.json({ success: true });
     }
 
     if (message.body.startsWith('🔔 *New Website Inquiry*') || 
         message.body.startsWith('💡 To reply to a customer')) {
-      return;
+      return res.json({ success: true });
     }
 
     let targetSessionId = null;
 
-    if (message.hasQuotedMsg) {
-      const quotedMsg = await message.getQuotedMessage();
-      if (quotedMsg && quotedMsg.id && quotedMsg.id._serialized) {
-        const inquiry = inquiriesByMsgId.get(quotedMsg.id._serialized);
-        if (inquiry) {
-          targetSessionId = inquiry.sessionId;
-          console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
-        }
+    // Check if message is a reply (quoted message)
+    if (message._data && message._data.quotedMsg) {
+      const quotedId = message._data.quotedMsg.id;
+      const inquiry = inquiriesByMsgId.get(quotedId);
+      if (inquiry) {
+        targetSessionId = inquiry.sessionId;
+        console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
       }
     }
 
+    // Check for session tag in message
     if (!targetSessionId) {
       const tagMatch = message.body.match(/(?:\[#|#)([A-Z0-9]{4})\]?/);
       if (tagMatch) {
@@ -222,7 +251,7 @@ whatsappClient.on('message_create', async (message) => {
       const replyMessage = {
         type: 'reply',
         message: message.body,
-        timestamp: message.timestamp
+        timestamp: Math.floor(Date.now() / 1000)
       };
 
       updateSessionActivity(targetSessionId);
@@ -242,17 +271,16 @@ whatsappClient.on('message_create', async (message) => {
       }
     } else {
       const hintMsg = '💡 To reply to a customer, either:\n• Quote their message, or\n• Include the session tag like #TAG in your reply';
-      await whatsappClient.sendMessage(chatId, hintMsg);
+      await sendWahaMessage(chatId, hintMsg);
       console.log('⚠️ Owner reply without valid session - sent hint');
     }
+
+    res.json({ success: true });
   } catch (error) {
-    console.error('Error processing incoming message:', error);
+    console.error('Error processing webhook:', error);
+    res.status(500).json({ error: error.message });
   }
 });
-
-// Initialize WhatsApp client
-console.log('Initializing WhatsApp client...');
-whatsappClient.initialize();
 
 app.get('/api/events', (req, res) => {
   const sessionId = req.query.sessionId;
@@ -361,12 +389,12 @@ app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
 
     console.log('📱 Sending to business WhatsApp:', chatId);
 
-    const sentMessage = await whatsappClient.sendMessage(chatId, formattedMessage);
-    console.log('✅ Message sent successfully:', sentMessage.id._serialized);
+    const sentMessage = await sendWahaMessage(chatId, formattedMessage);
+    console.log('✅ Message sent successfully:', sentMessage.id);
 
     updateSessionActivity(sessionId);
 
-    inquiriesByMsgId.set(sentMessage.id._serialized, {
+    inquiriesByMsgId.set(sentMessage.id, {
       sessionId,
       customerName,
       customerEmail,
@@ -377,8 +405,8 @@ app.post('/api/send-message', sendMessageRateLimit, async (req, res) => {
     res.json({ 
       success: true, 
       data: {
-        id: sentMessage.id._serialized,
-        timestamp: sentMessage.timestamp,
+        id: sentMessage.id,
+        timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
         sessionTag
       }
     });
@@ -416,17 +444,17 @@ app.get('/api/qr-code', localhostOnly, (req, res) => {
 // Get session status endpoint - localhost only
 app.get('/api/sessions', localhostOnly, async (req, res) => {
   try {
+    await checkWahaStatus();
+    
     const sessionInfo = {
       status: isClientReady ? 'ready' : 'not_ready',
       authenticated: isClientReady,
       needsQR: !isClientReady && qrCodeData !== null
     };
 
-    if (isClientReady && whatsappClient.info) {
+    if (isClientReady && businessWhatsAppNumber) {
       sessionInfo.info = {
-        pushname: whatsappClient.info.pushname,
-        platform: whatsappClient.info.platform,
-        phone: whatsappClient.info.wid.user
+        phone: businessWhatsAppNumber
       };
     }
 
@@ -442,16 +470,19 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     whatsappReady: isClientReady,
-    service: 'whatsapp-web.js'
+    service: 'waha'
   });
 });
 
 // Logout/disconnect endpoint - localhost only
 app.post('/api/logout', localhostOnly, async (req, res) => {
   try {
-    await whatsappClient.logout();
+    await wahaRequest(`/api/sessions/${WAHA_SESSION}/logout`, {
+      method: 'POST'
+    });
     isClientReady = false;
     qrCodeData = null;
+    businessWhatsAppNumber = null;
     res.json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
     console.error('Error logging out:', error.message);
@@ -459,8 +490,13 @@ app.post('/api/logout', localhostOnly, async (req, res) => {
   }
 });
 
+// Initialize Waha
+initializeWaha();
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
-  console.log(`WhatsApp service: whatsapp-web.js`);
+  console.log(`WhatsApp service: Waha`);
+  console.log(`Waha URL: ${WAHA_BASE_URL}`);
   console.log(`CORS: Open (all origins allowed)`);
+  console.log(`\n⚠️  IMPORTANT: Configure Waha webhook to: http://YOUR_REPLIT_URL:${PORT}/webhook/waha`);
 });
