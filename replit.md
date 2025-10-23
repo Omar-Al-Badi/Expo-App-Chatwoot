@@ -2,11 +2,11 @@
 
 This is a WhatsApp-integrated chat widget for websites that enables **two-way communication** between customers and business owners. The system includes:
 - A web frontend (port 5000) with an embedded chat widget
-- A Node.js backend (port 3001) running whatsapp-web.js for WhatsApp integration
+- A Node.js backend (port 3001) integrated with external Waha (WhatsApp HTTP API) instance
 - **Two-way messaging**: Customers send inquiries via web widget → Business receives on WhatsApp → Business replies in WhatsApp → Customer sees reply in web widget
 - Session-based conversation tracking with unique session tags
 - Real-time message delivery using Server-Sent Events (SSE)
-- Session persistence using LocalAuth strategy for seamless re-authentication
+- Session persistence managed by external Waha instance
 - Business WhatsApp: 96894515755
 
 # User Preferences
@@ -38,7 +38,7 @@ Preferred communication style: Simple, everyday language.
 
 **Problem**: Need two-way communication between website customers and business owner's WhatsApp account.
 
-**Solution**: Express.js server (v5.1.0) running on port 3001 with WhatsApp Web.js client.
+**Solution**: Express.js server (v5.1.0) running on port 3001, integrated with external Waha (WhatsApp HTTP API) instance at http://178.128.116.119:3000.
 
 **Message Flow Design**:
 - Customer enters optional name/phone number and types a message on the website
@@ -50,9 +50,10 @@ Preferred communication style: Simple, everyday language.
 
 **Key Architectural Decisions**:
 
-- **WhatsApp client**: Uses `whatsapp-web.js` (v1.34.1) with Puppeteer for browser automation
-- **Session persistence**: LocalAuth strategy with clientId 'whatsapp-session' to maintain WhatsApp sessions
-- **Business number capture**: Automatically retrieves authenticated user's WhatsApp number from client.info.wid.user
+- **WhatsApp integration**: Uses external Waha (WhatsApp HTTP API) instance at http://178.128.116.119:3000
+- **Authentication**: API key-based authentication (stored in Replit Secrets as WAHA_API_KEY)
+- **Session management**: Uses "default" session on Waha instance with WORKING status
+- **Business number capture**: Automatically retrieves WhatsApp number (96894515755) from Waha session info
 - **Session tracking**: Each customer gets a unique sessionId (stored in localStorage) and a 4-character tag for easy reference
 - **Message routing**: Maps WhatsApp message IDs to sessions; supports routing via quoted messages or manual tags (#TAG or [#TAG])
 - **Real-time delivery**: Server-Sent Events (SSE) endpoint pushes owner replies to connected browsers in real-time
