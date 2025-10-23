@@ -21,6 +21,26 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Webhook endpoint - forwards to backend
+app.post('/webhook/waha', async (req, res) => {
+  try {
+    console.log('📩 Webhook received on port 5000, forwarding to backend...');
+    const response = await fetch('http://localhost:3001/webhook/waha', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req.body),
+    });
+    
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Webhook proxy error:', error);
+    res.status(500).json({ error: 'Failed to forward webhook to backend' });
+  }
+});
+
 app.post('/api/send-message', messageLimiter, async (req, res) => {
   const { customerName, message, customerEmail } = req.body;
   
