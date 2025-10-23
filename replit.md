@@ -18,6 +18,7 @@ This is a WhatsApp-integrated chat widget for websites and mobile apps that enab
 - **Fixed message ID matching**: Updated reply matching logic to handle Waha's short message IDs using `endsWith()` comparison
 - **Working reply routing**: Both quoted replies and manual tag replies (#TAG) now successfully match and deliver to customers
 - **Tested end-to-end**: Confirmed complete flow: Mobile app → WhatsApp → Reply → Mobile app receives reply
+- **Unified workflow**: Created single "Start Expo App" workflow that starts all three required servers (Backend, Mobile API, Expo)
 
 # User Preferences
 
@@ -107,6 +108,14 @@ Preferred communication style: Simple, everyday language.
 **Build system**: Node.js with Express servers
 **Type safety**: TypeScript for React Native components (legacy)
 **Linting**: ESLint with expo-config-expo/flat configuration
+
+## Workflows
+
+**Start Expo App**: Single unified workflow that starts all required servers for the mobile app:
+- Starts Backend Server (port 3001) for WhatsApp integration
+- Starts Mobile API Server (port 8000) for webhooks and mobile API
+- Starts Expo development server with tunnel for mobile app testing
+- Run with: `bash -c "node server.js & node mobile-api-server.js & echo 'Y' | npx expo start --tunnel --port 8080"`
 
 # External Dependencies
 
