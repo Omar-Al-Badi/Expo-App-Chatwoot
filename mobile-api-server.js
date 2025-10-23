@@ -45,6 +45,26 @@ app.get('/api/poll-replies', async (req, res) => {
   }
 });
 
+// Webhook relay - forward Waha webhooks to backend
+app.post('/webhook/waha', async (req, res) => {
+  try {
+    console.log('📩 Webhook received on port 8000, forwarding to backend...');
+    const response = await fetch(`${BACKEND_URL}/webhook/waha`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req.body),
+    });
+    
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Webhook relay error:', error);
+    res.status(500).json({ error: 'Failed to forward webhook' });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Mobile API Server running on port ${PORT}`);
   console.log(`📱 External URL: https://${process.env.REPLIT_DEV_DOMAIN}:${PORT}`);
