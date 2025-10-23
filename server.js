@@ -197,17 +197,7 @@ async function initializeWaha() {
 app.post("/webhook/waha", async (req, res) => {
   try {
     const event = req.body;
-    console.log("📩 Waha webhook received:", {
-      event: event.event,
-      session: event.session,
-      payload: event.payload
-        ? {
-            from: event.payload.from,
-            fromMe: event.payload.fromMe,
-            body: event.payload.body?.substring(0, 50),
-          }
-        : null,
-    });
+    console.log("📩 Waha webhook received - FULL DATA:", JSON.stringify(event, null, 2));
 
     // Only process message events
     if (event.event !== "message" && event.event !== "message.any") {
