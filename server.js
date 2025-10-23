@@ -235,8 +235,17 @@ app.post("/webhook/waha", async (req, res) => {
 
     let targetSessionId = null;
 
-    // Check if message is a reply (quoted message)
-    if (message._data && message._data.quotedMsg) {
+    // Check if message is a reply (quoted message) - Waha format
+    if (message.replyTo && message.replyTo.id) {
+      const quotedId = message.replyTo.id;
+      const inquiry = inquiriesByMsgId.get(quotedId);
+      if (inquiry) {
+        targetSessionId = inquiry.sessionId;
+        console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
+      }
+    }
+    // Also check whatsapp-web.js format for backward compatibility
+    else if (message._data && message._data.quotedMsg) {
       const quotedId = message._data.quotedMsg.id;
       const inquiry = inquiriesByMsgId.get(quotedId);
       if (inquiry) {
