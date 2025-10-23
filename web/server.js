@@ -41,6 +41,19 @@ app.post('/webhook/waha', async (req, res) => {
   }
 });
 
+// Poll for replies endpoint - forwards to backend
+app.get('/api/poll-replies', async (req, res) => {
+  try {
+    const sessionId = req.query.sessionId;
+    const response = await fetch(`http://localhost:3001/api/poll-replies?sessionId=${sessionId}`);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error('Polling proxy error:', error);
+    res.status(500).json({ error: 'Failed to poll for replies' });
+  }
+});
+
 app.post('/api/send-message', messageLimiter, async (req, res) => {
   const { customerName, message, customerEmail } = req.body;
   
