@@ -2,14 +2,16 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   TouchableOpacity,
+  ScrollView,
   StyleSheet,
   Platform,
   Text,
+  Keyboard,
 } from "react-native";
+import type { KeyboardEvent } from "react-native";
 import { TextInput, Button } from "react-native-paper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAwareScrollView, KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 interface Message {
   id: string;
@@ -42,11 +44,35 @@ export function ChatWidget() {
   const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
-  const scrollViewRef = useRef<any>(null);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  // Track keyboard height so we can lift the chat window above it on mobile.
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const handleShow = (event: KeyboardEvent) => {
+      const height = event?.endCoordinates?.height ?? 0;
+      setKeyboardOffset(Math.max(0, height - insets.bottom));
+    };
+
+    const handleHide = () => {
+      setKeyboardOffset(0);
+    };
+
+    const showSub = Keyboard.addListener(showEvent, handleShow);
+    const hideSub = Keyboard.addListener(hideEvent, handleHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [insets.bottom]);
 
   const startChat = async () => {
     setIsChatStarted(true);
@@ -72,6 +98,8 @@ export function ChatWidget() {
 
     const pollForReplies = async () => {
       try {
+        // Debug: log the exact poll URL so we can confirm what the app is requesting
+        console.log("🔍 Poll URL:", pollUrl);
         const response = await fetch(pollUrl);
         if (response.ok) {
           const data = await response.json();
@@ -89,7 +117,12 @@ export function ChatWidget() {
           }
         }
       } catch (error) {
-        console.error("❌ Polling error:", error);
+        // More verbose error logging for easier debugging during development
+        try {
+          console.error("❌ Polling error:", error, "pollUrl:", pollUrl);
+        } catch (e) {
+          console.error("❌ Polling error (unable to stringify):", error);
+        }
       }
     };
 
@@ -181,10 +214,16 @@ export function ChatWidget() {
     setIsOpen(!isOpen);
   };
 
+  // Reserve space for the bottom navigation bar so the chat never sits behind it.
+  const NAVBAR_BUFFER = 64;
+  const baseBottomSpacing = insets.bottom + NAVBAR_BUFFER;
+  const floatingButtonBottom = baseBottomSpacing;
+  const chatBottomPadding = baseBottomSpacing + keyboardOffset;
+
   if (!isOpen) {
     return (
       <TouchableOpacity
-        style={[styles.floatingButton, { bottom: insets.bottom + 60 }]}
+        style={[styles.floatingButton, { bottom: floatingButtonBottom }]}
         onPress={toggleChat}
       >
         <Text style={styles.floatingButtonText}>💬</Text>
@@ -193,137 +232,134 @@ export function ChatWidget() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "position" : "height"}
-      style={styles.container}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 160 : 0}
-    >
-      <View style={[styles.chatWindow, { bottom: insets.bottom + 80 }]}>
-        <View style={styles.header}>
-          <Text style={styles.headerText}>WhatsApp Chat</Text>
-          <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        {!isChatStarted ? (
-          <View style={styles.setupContainer}>
-            <Text style={styles.setupText}>
-              Start a conversation with us! 💬
-            </Text>
-            <TextInput
-              mode="outlined"
-              value={customerName}
-              onChangeText={setCustomerName}
-              label="Your name (optional)"
-              autoCapitalize="words"
-              style={styles.textInput}
-            />
-            <TextInput
-              mode="outlined"
-              value={customerPhone}
-              onChangeText={setCustomerPhone}
-              label="Your phone number (optional)"
-              keyboardType="phone-pad"
-              style={styles.textInput}
-            />
-            <Button
-              mode="contained"
-              onPress={startChat}
-              style={styles.connectButton}
-            >
-              Start Chat
-            </Button>
+    <View style={styles.overlay} pointerEvents="box-none">
+      <View
+        style={[
+          styles.chatWindowContainer,
+          { paddingBottom: chatBottomPadding },
+        ]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.chatWindow}>
+          <View style={styles.header}>
+            <Text style={styles.headerText}>WhatsApp Chat</Text>
+            <TouchableOpacity onPress={toggleChat} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.chatContent}>
-            <KeyboardAwareScrollView
-              ref={scrollViewRef}
-              style={styles.messagesContainer}
-              contentContainerStyle={styles.messagesContent}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="interactive"
-            >
-              {messages.map((message) => (
-                <View
-                  key={message.id}
-                  style={[
-                    styles.messageWrapper,
-                    message.isUser
-                      ? styles.userMessageWrapper
-                      : styles.botMessageWrapper,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.messageBubble,
-                      message.isUser ? styles.userBubble : styles.botBubble,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.messageText,
-                        message.isUser
-                          ? styles.userMessageText
-                          : styles.botMessageText,
-                      ]}
-                    >
-                      {message.text}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </KeyboardAwareScrollView>
 
-            <View style={styles.inputContainer}>
+          {!isChatStarted ? (
+            <View style={styles.setupContainer}>
+              <Text style={styles.setupText}>
+                Start a conversation with us! 💬
+              </Text>
               <TextInput
                 mode="outlined"
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Type a message..."
-                onSubmitEditing={sendMessage}
-                returnKeyType="send"
-                style={styles.input}
-                multiline={false}
-                maxLength={500}
+                value={customerName}
+                onChangeText={setCustomerName}
+                label="Your name (optional)"
+                autoCapitalize="words"
+                style={styles.textInput}
+              />
+              <TextInput
+                mode="outlined"
+                value={customerPhone}
+                onChangeText={setCustomerPhone}
+                label="Your phone number (optional)"
+                keyboardType="phone-pad"
+                style={styles.textInput}
               />
               <Button
                 mode="contained"
-                onPress={sendMessage}
-                style={styles.sendButton}
+                onPress={startChat}
+                style={styles.connectButton}
               >
-                Send
+                Start Chat
               </Button>
             </View>
-          </View>
-        )}
-      </View>
+          ) : (
+            <>
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.messagesContainer}
+                contentContainerStyle={styles.messagesContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {messages.map((message) => (
+                  <View
+                    key={message.id}
+                    style={[
+                      styles.messageWrapper,
+                      message.isUser
+                        ? styles.userMessageWrapper
+                        : styles.botMessageWrapper,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.messageBubble,
+                        message.isUser ? styles.userBubble : styles.botBubble,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.messageText,
+                          message.isUser
+                            ? styles.userMessageText
+                            : styles.botMessageText,
+                        ]}
+                      >
+                        {message.text}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.floatingButton, { bottom: insets.bottom + 60 }]}
-        onPress={toggleChat}
-      >
-        <Text style={styles.floatingButtonText}>✕</Text>
-      </TouchableOpacity>
-    </KeyboardAvoidingView>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  mode="outlined"
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Type a message..."
+                  onSubmitEditing={sendMessage}
+                  returnKeyType="send"
+                  style={styles.input}
+                  multiline={false}
+                  maxLength={500}
+                />
+                <Button
+                  mode="contained"
+                  onPress={sendMessage}
+                  style={styles.sendButton}
+                >
+                  Send
+                </Button>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     zIndex: 1000,
     pointerEvents: "box-none",
   },
+  chatWindowContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingHorizontal: 10,
+  },
   chatWindow: {
-    position: "absolute",
-    left: 10,
-    right: 10,
-    maxHeight: "60%",
+    alignSelf: "stretch",
+    width: "100%",
+    minHeight: 360,
+    maxHeight: "80%",
     borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "#fff",
@@ -355,9 +391,6 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: "#fff",
     fontSize: 24,
-  },
-  chatContent: {
-    flex: 1,
   },
   messagesContainer: {
     flex: 1,
