@@ -13,11 +13,14 @@ This is a WhatsApp-integrated chat widget for websites and mobile apps that enab
 
 # Recent Changes
 
-## October 26, 2025 - iOS Keyboard Handling Fix
-- **Fixed iOS keyboard covering input**: Added proper keyboard avoidance for mobile chat interface
-- **ScrollView enhancements**: Added `automaticallyAdjustKeyboardInsets`, `keyboardShouldPersistTaps`, and `keyboardDismissMode` props
-- **Proper offset calculation**: Set `keyboardVerticalOffset` to match chat window positioning (`insets.bottom + 200`) to prevent header from being pushed off-screen
-- **Result**: Chat input remains visible and accessible while typing, and header/close button stays on screen
+## October 26, 2025 - iOS Keyboard Handling with react-native-keyboard-controller
+- **Installed react-native-keyboard-controller**: Modern library specifically designed for chat app keyboard handling
+- **KeyboardProvider wrapper**: App wrapped in KeyboardProvider in _layout.tsx for global keyboard management
+- **KeyboardAvoidingView with position behavior**: Uses behavior="position" to translate chat window upward when keyboard appears
+- **KeyboardAwareScrollView**: Messages container uses keyboard-aware scrolling from the library
+- **Tuned offset**: Set keyboardVerticalOffset to 160 to balance header visibility and input accessibility
+- **Responsive height**: Chat window maxHeight set to 60% of screen for better keyboard accommodation
+- **Result**: Chat window slides upward smoothly when keyboard appears on iOS, keeping input above keyboard while maintaining header visibility
 
 ## October 23, 2025 - Webhook System Fixes
 - **Fixed webhook delivery**: Routed Waha webhooks through port 8000 (Mobile API Server) instead of port 3001 to bypass Replit port accessibility constraints
