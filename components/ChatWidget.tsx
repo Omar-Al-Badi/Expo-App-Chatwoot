@@ -196,6 +196,7 @@ export function ChatWidget() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom + 200 : 0}
       style={styles.container}
     >
       <View style={[styles.chatWindow, { bottom: insets.bottom + 200 }]}>
@@ -241,6 +242,9 @@ export function ChatWidget() {
               ref={scrollViewRef}
               style={styles.messagesContainer}
               contentContainerStyle={styles.messagesContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
             >
               {messages.map((message) => (
                 <View
