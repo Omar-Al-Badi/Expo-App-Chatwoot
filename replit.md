@@ -11,9 +11,15 @@ This is a WhatsApp-integrated chat widget for websites and mobile apps that enab
 - Webhook-based reply routing through port 8000
 - Business WhatsApp: 96894515755
 
-# Recent Changes (October 23, 2025)
+# Recent Changes
 
-## Webhook System Fixes
+## October 26, 2025 - iOS Keyboard Handling Fix
+- **Fixed iOS keyboard covering input**: Added proper keyboard avoidance for mobile chat interface
+- **ScrollView enhancements**: Added `automaticallyAdjustKeyboardInsets`, `keyboardShouldPersistTaps`, and `keyboardDismissMode` props
+- **Proper offset calculation**: Set `keyboardVerticalOffset` to match chat window positioning (`insets.bottom + 200`) to prevent header from being pushed off-screen
+- **Result**: Chat input remains visible and accessible while typing, and header/close button stays on screen
+
+## October 23, 2025 - Webhook System Fixes
 - **Fixed webhook delivery**: Routed Waha webhooks through port 8000 (Mobile API Server) instead of port 3001 to bypass Replit port accessibility constraints
 - **Fixed message ID matching**: Updated reply matching logic to handle Waha's short message IDs using `endsWith()` comparison
 - **Working reply routing**: Both quoted replies and manual tag replies (#TAG) now successfully match and deliver to customers
