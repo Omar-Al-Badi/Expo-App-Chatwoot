@@ -2,15 +2,14 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
   Text,
 } from "react-native";
 import { TextInput, Button } from "react-native-paper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 interface Message {
   id: string;
@@ -43,7 +42,7 @@ export function ChatWidget() {
   const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<any>(null);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -195,9 +194,9 @@ export function ChatWidget() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "position" : "height"}
       style={styles.container}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 160 : 0}
     >
       <View style={[styles.chatWindow, { bottom: insets.bottom + 80 }]}>
         <View style={styles.header}>
@@ -238,7 +237,7 @@ export function ChatWidget() {
           </View>
         ) : (
           <View style={styles.chatContent}>
-            <ScrollView
+            <KeyboardAwareScrollView
               ref={scrollViewRef}
               style={styles.messagesContainer}
               contentContainerStyle={styles.messagesContent}
@@ -274,7 +273,7 @@ export function ChatWidget() {
                   </View>
                 </View>
               ))}
-            </ScrollView>
+            </KeyboardAwareScrollView>
 
             <View style={styles.inputContainer}>
               <TextInput
@@ -322,9 +321,9 @@ const styles = StyleSheet.create({
   },
   chatWindow: {
     position: "absolute",
-    right: 10,
     left: 10,
-    maxHeight: "70%",
+    right: 10,
+    maxHeight: "60%",
     borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "#fff",
