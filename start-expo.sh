@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Universal domain detection - works on Replit, local, or any hosting platform
-# Priority: CUSTOM_DOMAIN > REPLIT_DEV_DOMAIN > localhost
+# Universal domain detection - works on Replit, VPS, local, or any hosting platform
+# Priority: CUSTOM_DOMAIN > REPLIT_DEV_DOMAIN > PUBLIC_IP > LOCAL_IP > localhost
 
 if [ -n "$CUSTOM_DOMAIN" ]; then
   # User-defined custom domain (highest priority)
@@ -14,19 +14,38 @@ elif [ -n "$REPLIT_DEV_DOMAIN" ]; then
   PROTOCOL="https"
   echo "🔵 Detected Replit environment"
 else
-  # Local development or other platforms
-  # Get the local IP address for LAN access
-  if command -v hostname &> /dev/null; then
-    DOMAIN=$(hostname -I | awk '{print $1}')
+  # Try to get public IP (for VPS/cloud servers)
+  echo "🔍 Detecting public IP..."
+  PUBLIC_IP=""
+  
+  # Try multiple services for reliability
+  PUBLIC_IP=$(curl -s --connect-timeout 3 ifconfig.me 2>/dev/null)
+  if [ -z "$PUBLIC_IP" ]; then
+    PUBLIC_IP=$(curl -s --connect-timeout 3 api.ipify.org 2>/dev/null)
+  fi
+  if [ -z "$PUBLIC_IP" ]; then
+    PUBLIC_IP=$(curl -s --connect-timeout 3 icanhazip.com 2>/dev/null)
   fi
   
-  # Fallback to localhost if hostname command fails
-  if [ -z "$DOMAIN" ]; then
-    DOMAIN="localhost"
+  # Validate that we got a valid IP address (basic check)
+  if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    DOMAIN="$PUBLIC_IP"
+    PROTOCOL="http"
+    echo "🌍 Using public IP: $DOMAIN (VPS/Cloud server detected)"
+  else
+    # Fallback to local IP for LAN development
+    if command -v hostname &> /dev/null; then
+      DOMAIN=$(hostname -I | awk '{print $1}')
+    fi
+    
+    # Final fallback to localhost
+    if [ -z "$DOMAIN" ]; then
+      DOMAIN="localhost"
+    fi
+    
+    PROTOCOL="http"
+    echo "💻 Using local development mode: $DOMAIN"
   fi
-  
-  PROTOCOL="http"
-  echo "💻 Using local development mode"
 fi
 
 # Set environment variables

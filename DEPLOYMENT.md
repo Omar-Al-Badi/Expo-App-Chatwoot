@@ -9,7 +9,9 @@ The `start-expo.sh` script detects the hosting environment and sets the correct 
 ### Priority Order:
 1. **CUSTOM_DOMAIN** (highest priority) - Your custom domain
 2. **REPLIT_DEV_DOMAIN** - Automatically detected on Replit
-3. **Local IP/localhost** (fallback) - For local development
+3. **PUBLIC_IP** - Auto-detected for VPS/cloud servers
+4. **LOCAL_IP** - Your local network IP
+5. **localhost** (final fallback) - For local development
 
 ---
 
@@ -57,23 +59,43 @@ CUSTOM_DOMAIN=yourdomain.com
 
 ---
 
+### 🖥️ VPS (DigitalOcean, AWS EC2, Linode, etc.)
+
+**No setup needed!** The script automatically detects your public IP.
+
+```bash
+bash start-expo.sh
+# 🌍 Using public IP: 164.92.123.45 (VPS/Cloud server detected)
+```
+
+The script tries multiple IP detection services:
+1. `ifconfig.me`
+2. `api.ipify.org`
+3. `icanhazip.com`
+
+This ensures reliability even if one service is down.
+
+**For production with domain:**
+```bash
+export CUSTOM_DOMAIN="myapp.com"
+bash start-expo.sh
+```
+
+---
+
 ### 🐳 Docker / Cloud Platforms
 
-For platforms like Heroku, AWS, DigitalOcean, etc.:
+For platforms like Heroku, AWS, etc.:
 
 **Option 1: Set environment variable**
 ```bash
 CUSTOM_DOMAIN=your-app.herokuapp.com bash start-expo.sh
 ```
 
-**Option 2: Auto-detect platform**
-The script will fall back to localhost if no domain is detected. You can extend the script to detect specific platform variables:
-
+**Option 2: Let it auto-detect public IP**
 ```bash
-# Add to start-expo.sh after REPLIT_DEV_DOMAIN check:
-elif [ -n "$HEROKU_APP_NAME" ]; then
-  DOMAIN="$HEROKU_APP_NAME.herokuapp.com"
-  PROTOCOL="https"
+bash start-expo.sh
+# Works automatically on any VPS/cloud platform
 ```
 
 ---
