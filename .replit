@@ -25,10 +25,6 @@ localPort = 8080
 externalPort = 8080
 
 [[ports]]
-localPort = 8082
-externalPort = 3000
-
-[[ports]]
 localPort = 33279
 externalPort = 3003
 
@@ -117,7 +113,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bash -c \"node server.js & npx expo start --port 8080\""
+args = "bash start-expo.sh"
 waitForPort = 8080
 
 [agent]
