@@ -1,50 +1,118 @@
-# Welcome to your Expo app 👋
+# WhatsApp Business Platform 📱
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A universal WhatsApp business integration platform with a mobile chat widget built with React Native and Expo. Customers can chat with your business through a mobile app, and messages are routed to your WhatsApp Business account via Waha.
 
-## Get started
+## ✨ Features
 
-1. Install dependencies
+- 📱 **Mobile Chat Widget** - React Native app for customers to contact your business
+- 💬 **WhatsApp Integration** - Messages sent directly to your business WhatsApp via Waha
+- 🌐 **Web Landing Page** - Professional landing page on port 5000
+- 🔄 **Real-time Messaging** - Instant message delivery and reply polling
+- 🚀 **Universal Deployment** - Auto-detects environment (Replit, VPS, Local)
+
+## 🚀 Quick Start
+
+1. **Install dependencies**
 
    ```bash
    npm install
    ```
 
-2. Start the app
+2. **Start the app**
 
    ```bash
-   npx expo start
+   bash start-expo.sh
    ```
 
-In the output, you'll find options to open the app in a
+The script automatically detects your environment:
+- 🔵 **Replit** - Uses dev domain automatically
+- 🌍 **VPS** - Auto-detects public IP
+- 💻 **Local** - Uses your local network IP
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+3. **Scan QR Code**
+   - Open Expo Go on your phone
+   - Scan the QR code shown in terminal
+   - Start chatting!
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🌐 Universal Deployment
 
-## Get a fresh project
+This app works anywhere without configuration changes!
 
-When you're ready, run:
-
+### On Replit (Current)
 ```bash
-npm run reset-project
+bash start-expo.sh
+# Automatically uses Replit domain
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### On a VPS (DigitalOcean, AWS, etc.)
+```bash
+bash start-expo.sh
+# Automatically detects public IP
+```
 
-## Learn more
+### With Custom Domain
+```bash
+export CUSTOM_DOMAIN="myapp.com"
+bash start-expo.sh
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### Local Development
+```bash
+bash start-expo.sh
+# Uses your local IP for LAN testing
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+📖 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
-## Join the community
+## 🏗️ Architecture
 
-Join our community of developers creating universal apps.
+- **Backend Server** (port 3001) - WhatsApp message handling via Waha
+- **Expo Metro** (port 8080) - Mobile app development server  
+- **Web Frontend** (port 5000) - Landing page
+- **No ngrok needed** - Uses native public URLs
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 📁 Project Structure
+
+```
+├── app/                 # Expo mobile app (file-based routing)
+├── components/          # React Native components
+├── server.js           # Backend WhatsApp server
+├── web/                # Web landing page
+├── start-expo.sh       # Universal startup script
+└── DEPLOYMENT.md       # Deployment guide
+```
+
+## 🛠️ Configuration
+
+The `start-expo.sh` script handles all configuration automatically. It sets:
+
+- `REACT_NATIVE_PACKAGER_HOSTNAME` - Domain for Expo
+- `EXPO_PUBLIC_BACKEND_URL` - Backend API URL
+- `EXPO_DEVTOOLS_LISTEN_ADDRESS` - Listen on all interfaces
+
+## 📱 Testing on Mobile
+
+1. Install [Expo Go](https://expo.dev/go) on your phone
+2. Make sure your phone is on the same network (for local dev)
+3. Scan the QR code displayed in the terminal
+4. Start chatting!
+
+## 🔧 Environment Variables
+
+Optional custom configuration:
+
+```bash
+CUSTOM_DOMAIN=yourdomain.com     # Custom domain
+WAHA_BASE_URL=http://...         # Your Waha instance URL
+WAHA_SESSION=default             # Waha session name
+```
+
+## 📚 Learn More
+
+- [Expo Documentation](https://docs.expo.dev/)
+- [React Native](https://reactnative.dev/)
+- [Waha WhatsApp API](https://waha.devlike.pro/)
+
+## 🤝 Support
+
+For deployment help, see [DEPLOYMENT.md](./DEPLOYMENT.md)
