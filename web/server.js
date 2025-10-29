@@ -64,10 +64,6 @@ app.post('/api/send-message', messageLimiter, async (req, res) => {
   if (message.length > 1000) {
     return res.status(400).json({ error: 'Message too long. Maximum 1000 characters.' });
   }
-  
-  if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
-    return res.status(400).json({ error: 'Invalid email format' });
-  }
   try {
     const response = await fetch('http://localhost:3001/api/send-message', {
       method: 'POST',
