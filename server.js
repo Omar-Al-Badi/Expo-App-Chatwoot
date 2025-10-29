@@ -7,8 +7,7 @@ const app = express();
 const PORT = 3001;
 
 // Waha configuration
-const WAHA_BASE_URL =
-  process.env.WAHA_BASE_URL || "http://178.128.116.119:3000";
+const WAHA_BASE_URL = process.env.WAHA_BASE_URL || "";
 const WAHA_SESSION = process.env.WAHA_SESSION || "default";
 const WAHA_API_KEY = process.env.WAHA_API_KEY || "";
 
@@ -197,7 +196,10 @@ async function initializeWaha() {
 app.post("/webhook/waha", async (req, res) => {
   try {
     const event = req.body;
-    console.log("📩 Waha webhook received - FULL DATA:", JSON.stringify(event, null, 2));
+    console.log(
+      "📩 Waha webhook received - FULL DATA:",
+      JSON.stringify(event, null, 2),
+    );
 
     // Only process message events
     if (event.event !== "message" && event.event !== "message.any") {
@@ -240,7 +242,7 @@ app.post("/webhook/waha", async (req, res) => {
       const quotedId = message.replyTo.id;
       // Try exact match first
       let inquiry = inquiriesByMsgId.get(quotedId);
-      
+
       // If not found, try finding by the short ID (last part after underscore)
       if (!inquiry) {
         for (const [msgId, inq] of inquiriesByMsgId.entries()) {
@@ -250,7 +252,7 @@ app.post("/webhook/waha", async (req, res) => {
           }
         }
       }
-      
+
       if (inquiry) {
         targetSessionId = inquiry.sessionId;
         console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
@@ -260,7 +262,7 @@ app.post("/webhook/waha", async (req, res) => {
     else if (message._data && message._data.quotedMsg) {
       const quotedId = message._data.quotedMsg.id;
       let inquiry = inquiriesByMsgId.get(quotedId);
-      
+
       if (!inquiry) {
         for (const [msgId, inq] of inquiriesByMsgId.entries()) {
           if (msgId.endsWith(quotedId)) {
@@ -269,7 +271,7 @@ app.post("/webhook/waha", async (req, res) => {
           }
         }
       }
-      
+
       if (inquiry) {
         targetSessionId = inquiry.sessionId;
         console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
