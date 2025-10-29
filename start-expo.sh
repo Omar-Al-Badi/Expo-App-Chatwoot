@@ -69,6 +69,88 @@ echo "🌐 Domain: $DOMAIN"
 echo "📱 Backend URL: $EXPO_PUBLIC_BACKEND_URL"
 echo "🔌 Protocol: $PROTOCOL"
 
+# Generate and save webhook configuration
+WEBHOOK_URL="${PROTOCOL}://${DOMAIN}/webhook/waha"
+WEBHOOK_CONFIG_FILE="WEBHOOK_CONFIG.txt"
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📡 WAHA WEBHOOK CONFIGURATION"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Webhook URL: $WEBHOOK_URL"
+echo ""
+echo "To configure Waha, run this command:"
+echo ""
+echo "curl -X PUT 'http://YOUR_WAHA_IP:3000/api/sessions/default' \\"
+echo "  -H 'Content-Type: application/json' \\"
+echo "  -H 'X-Api-Key: YOUR_API_KEY' \\"
+echo "  -d '{"
+echo "    \"config\": {"
+echo "      \"webhooks\": ["
+echo "        {"
+echo "          \"url\": \"$WEBHOOK_URL\","
+echo "          \"events\": [\"message\"]"
+echo "        }"
+echo "      ]"
+echo "    }"
+echo "  }'"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Save webhook configuration to file
+cat > "$WEBHOOK_CONFIG_FILE" << EOF
+WAHA WEBHOOK CONFIGURATION
+==========================
+Generated on: $(date)
+
+Webhook URL: $WEBHOOK_URL
+
+To configure your Waha server, run this command:
+
+curl -X PUT 'http://YOUR_WAHA_IP:3000/api/sessions/default' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-Api-Key: YOUR_API_KEY' \\
+  -d '{
+    "config": {
+      "webhooks": [
+        {
+          "url": "$WEBHOOK_URL",
+          "events": ["message"]
+        }
+      ]
+    }
+  }'
+
+Replace:
+- YOUR_WAHA_IP: Your Waha server IP or domain
+- YOUR_API_KEY: Your Waha API key from environment variable
+
+For your current setup:
+- Waha Server: ${WAHA_BASE_URL:-http://116.203.63.227:3000}
+- Session: ${WAHA_SESSION:-default}
+
+Example with current settings:
+
+curl -X PUT 'http://116.203.63.227:3000/api/sessions/default' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-Api-Key: \${WAHA_API_KEY}' \\
+  -d '{
+    "config": {
+      "webhooks": [
+        {
+          "url": "$WEBHOOK_URL",
+          "events": ["message"]
+        }
+      ]
+    }
+  }'
+EOF
+
+echo "💾 Webhook configuration saved to: $WEBHOOK_CONFIG_FILE"
+echo ""
+
 # Start the backend server in the background
 node server.js &
 

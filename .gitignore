@@ -40,4 +40,7 @@ yarn-error.*
 .wwebjs_auth/
 .wwebjs_cache/
 
+# Environment-specific webhook configuration
+WEBHOOK_CONFIG.txt
+
 app-example
