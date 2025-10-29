@@ -11,7 +11,10 @@
       "android": {
         "buildType": "apk"
       },
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://cdf89dd4-d4dd-4308-a38c-e5cd4e09c85a-00-1r5kjj50r65mj.pike.replit.dev"
+      }
     },
     "production": {
       "android": {
