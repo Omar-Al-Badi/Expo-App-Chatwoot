@@ -1,15 +1,14 @@
 # Overview
 
 This is a WhatsApp-integrated chat widget for websites and mobile apps that enables **two-way communication** between customers and business owners. The system includes:
-- A web frontend (port 5000) with an embedded chat widget - **FULLY WORKING**
+- A web frontend (port 5000) with an embedded chat widget and webhook relay - **FULLY WORKING**
 - A React Native mobile app (Expo) for customer inquiries - **FULLY WORKING**
-- A Node.js backend (port 3001) integrated with external Waha (WhatsApp HTTP API) instance at http://178.128.116.119:3000
-- A Mobile API Server (port 8000) for webhook relay and mobile app API
+- A Node.js backend (port 3001) integrated with external Waha (WhatsApp HTTP API) instance at http://116.203.63.227:3000
 - **Two-way messaging**: Customers send inquiries via web/mobile → Business receives on WhatsApp → Business replies in WhatsApp → Customer sees reply in real-time
 - Session-based conversation tracking with unique session tags
-- Real-time message delivery using Server-Sent Events (SSE) for web and polling for mobile
-- Webhook-based reply routing through port 8000
-- Business WhatsApp: 96894515755
+- Real-time message delivery using polling for mobile
+- Webhook-based reply routing through web server reverse proxy
+- Business WhatsApp: 96877587737
 
 **System Status**: All components operational. Web frontend serving on port 5000, mobile app built with iOS keyboard handling optimized.
 
@@ -24,12 +23,16 @@ This is a WhatsApp-integrated chat widget for websites and mobile apps that enab
 - **Responsive height**: Chat window maxHeight set to 60% of screen for better keyboard accommodation
 - **Result**: Chat window slides upward smoothly when keyboard appears on iOS, keeping input above keyboard while maintaining header visibility
 
+## October 29, 2025 - Reverse Proxy Architecture
+- **Implemented reverse proxy**: Web server (port 5000) now proxies all API and webhook requests to backend (port 3001)
+- **Fixed webhook delivery**: Waha webhooks delivered to web server (port 5000) which forwards to backend for HTTPS compatibility
+- **Removed email validation**: Phone numbers now accepted in contact field
+- **Working reply routing**: Both quoted replies and manual tag replies (#TAG) successfully match and deliver to customers
+- **Tested end-to-end**: Confirmed complete flow: Mobile app → WhatsApp → Reply → Mobile app receives reply via polling
+
 ## October 23, 2025 - Webhook System Fixes
-- **Fixed webhook delivery**: Routed Waha webhooks through port 8000 (Mobile API Server) instead of port 3001 to bypass Replit port accessibility constraints
 - **Fixed message ID matching**: Updated reply matching logic to handle Waha's short message IDs using `endsWith()` comparison
-- **Working reply routing**: Both quoted replies and manual tag replies (#TAG) now successfully match and deliver to customers
 - **Tested end-to-end**: Confirmed complete flow: Mobile app → WhatsApp → Reply → Mobile app receives reply
-- **Unified workflow**: Created single "Start Expo App" workflow that starts all three required servers (Backend, Mobile API, Expo)
 
 # User Preferences
 
@@ -68,19 +71,19 @@ Preferred communication style: Simple, everyday language.
 - Messages are sent TO the business WhatsApp (not to customer phone numbers)
 - Each message is formatted with customer info, message content, timestamp, and unique session tag (e.g., [#AB12])
 - Business owner replies in WhatsApp by either quoting the customer's message or including the session tag
-- Waha sends webhook to Mobile API Server (port 8000) which forwards to backend (port 3001)
-- Backend detects owner's reply and routes it back to the correct customer via SSE (web) or polling (mobile)
+- Waha sends webhook to web server (port 5000) which proxies to backend (port 3001)
+- Backend detects owner's reply and routes it back to the correct customer via polling (mobile)
 
 **Key Architectural Decisions**:
 
-- **WhatsApp integration**: Uses external Waha (WhatsApp HTTP API) instance at http://178.128.116.119:3000
+- **WhatsApp integration**: Uses external Waha (WhatsApp HTTP API) instance at http://116.203.63.227:3000
 - **Authentication**: API key-based authentication (stored in Replit Secrets as WAHA_API_KEY)
 - **Session management**: Uses "default" session on Waha instance with WORKING status
-- **Business number capture**: Automatically retrieves WhatsApp number (96894515755) from Waha session info on startup
-- **Session tracking**: Each customer gets a unique sessionId (stored in localStorage/AsyncStorage) and a 4-character tag for easy reference
-- **Webhook routing**: Port 8000 (Mobile API Server) receives Waha webhooks and forwards to backend port 3001
-  - **Critical fix**: Port 8000 is externally accessible, avoiding Replit port conflicts
-  - Webhook URL: `https://[replit-url]:8000/webhook/waha`
+- **Business number capture**: Automatically retrieves WhatsApp number (96877587737) from Waha session info on startup
+- **Session tracking**: Each customer gets a unique sessionId (stored in AsyncStorage) and a 4-character tag for easy reference
+- **Webhook routing**: Web server (port 5000) receives Waha webhooks and proxies to backend (port 3001)
+  - **Reverse proxy architecture**: Port 5000 is the only externally accessible port on Replit
+  - Webhook URL: `https://[replit-url]/webhook/waha` (no port specification needed)
 - **Message ID matching**: 
   - **Fixed for Waha format**: Waha webhooks use short IDs (e.g., `3EB0BD91...`) in `replyTo.id`
   - Backend stores full IDs (e.g., `true_96894515755@c.us_3EB0BD91...`)
@@ -89,15 +92,13 @@ Preferred communication style: Simple, everyday language.
   - **Quoted messages**: Matches `message.replyTo.id` to stored message IDs (Waha format)
   - **Manual tags**: Extracts session tag from message body (#TAG or [#TAG])
 - **Real-time delivery**: 
-  - **Web**: Server-Sent Events (SSE) endpoint pushes owner replies to connected browsers
   - **Mobile**: 3-second polling to fetch queued replies
-- **Multi-client support**: Multiple browser tabs/devices for same customer all receive replies via broadcast
-- **Offline queuing**: Replies are queued when customer is offline and delivered on reconnection
+- **Offline queuing**: Replies are queued when customer is offline and delivered on next poll
 - **Session lifecycle**: 7-day TTL based on last activity (send, reply, or SSE connect); automatic cleanup of expired sessions
 - **Message formatting**: Structured format with customer name, phone/email (optional), message, timestamp, and session tag
 - **CORS enabled**: Allows cross-origin requests for frontend-backend communication
 
-**Rationale**: This design allows website visitors to contact the business without needing WhatsApp themselves. The business owner receives all inquiries in their WhatsApp account and can respond directly. Session tags enable easy identification of which customer to reply to. The three-tier architecture (Frontend → Mobile API Server → Backend) solves Replit's port accessibility constraints while enabling webhook delivery.
+**Rationale**: This design allows website visitors to contact the business without needing WhatsApp themselves. The business owner receives all inquiries in their WhatsApp account and can respond directly. Session tags enable easy identification of which customer to reply to. The reverse proxy architecture (Waha → Web Server → Backend) solves Replit's HTTPS requirements and port accessibility constraints.
 
 ## State Management
 
@@ -122,28 +123,34 @@ Preferred communication style: Simple, everyday language.
 
 ## Workflows
 
-**Start Expo App**: Single unified workflow that starts all required servers for the mobile app:
+**Start Expo App**: Starts backend server and Expo development server:
 - Starts Backend Server (port 3001) for WhatsApp integration
-- Starts Mobile API Server (port 8000) for webhooks and mobile API
-- Starts Expo development server with tunnel for mobile app testing
-- Run with: `bash -c "node server.js & node mobile-api-server.js & echo 'Y' | npx expo start --tunnel --port 8080"`
+- Starts Expo development server for mobile app testing
+- Automatic domain detection (Replit, VPS, or local)
+- Run with: `bash start-expo.sh`
+
+**Web Frontend**: Serves web landing page and reverse proxy:
+- Web server (port 5000) with embedded chat widget
+- Proxies API requests to backend (port 3001)
+- Receives and forwards Waha webhooks
+- Run with: `cd web && node server.js`
 
 # External Dependencies
 
 ## Backend & APIs
-- **Express 5.1.0**: Web server framework
+- **Express**: Web server framework
   - Port 3001: WhatsApp backend API
-  - Port 5000: Web frontend with proxy to backend
-  - Port 8000: Mobile API Server (webhook relay)
+  - Port 5000: Web frontend with reverse proxy to backend
 - **Axios**: HTTP client for Waha API communication
-- **cors 2.8.5**: Cross-origin resource sharing middleware
-- **body-parser 2.2.0**: Request body parsing
+- **cors**: Cross-origin resource sharing middleware
+- **body-parser**: Request body parsing
 
 ## Webhook Infrastructure
-- **Mobile API Server** (port 8000): Dedicated Express server for receiving Waha webhooks
-  - Forwards webhooks to backend port 3001
-  - Externally accessible for Waha webhook delivery
-  - Solves Replit port accessibility constraints
+- **Web Server** (port 5000): Receives Waha webhooks and proxies to backend
+  - Only externally accessible port on Replit (HTTPS)
+  - Forwards all API requests and webhooks to backend (port 3001)
+  - Serves static web frontend files
+  - Solves Replit's HTTPS requirement and port accessibility constraints
 
 ## Mobile App (React Native)
 - **Expo SDK**: React Native development framework
