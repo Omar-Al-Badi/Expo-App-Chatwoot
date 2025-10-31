@@ -289,6 +289,9 @@ app.post("/webhook/waha", async (req, res) => {
     // Check if message is a reply (quoted message) - Waha format
     if (message.replyTo && message.replyTo.id) {
       const quotedId = message.replyTo.id;
+      console.log(`🔍 Quoted message ID: ${quotedId}`);
+      console.log(`🔍 Available message IDs:`, Array.from(inquiriesByMsgId.keys()));
+      
       // Try exact match first
       let inquiry = inquiriesByMsgId.get(quotedId);
 
@@ -296,6 +299,7 @@ app.post("/webhook/waha", async (req, res) => {
       if (!inquiry) {
         for (const [msgId, inq] of inquiriesByMsgId.entries()) {
           if (msgId.endsWith(quotedId)) {
+            console.log(`✅ Found match: ${msgId} ends with ${quotedId}`);
             inquiry = inq;
             break;
           }
@@ -305,6 +309,8 @@ app.post("/webhook/waha", async (req, res) => {
       if (inquiry) {
         targetSessionId = inquiry.sessionId;
         console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
+      } else {
+        console.log(`❌ No matching inquiry found for quoted ID: ${quotedId}`);
       }
     }
     // Also check whatsapp-web.js format for backward compatibility
@@ -332,6 +338,9 @@ app.post("/webhook/waha", async (req, res) => {
       const tagMatch = message.body.match(/(?:\[#|#)([A-Z0-9]{4})\]?/);
       if (tagMatch) {
         const tag = tagMatch[1];
+        console.log(`🔍 Found tag in message: #${tag}`);
+        console.log(`🔍 Available session tags:`, Array.from(sessionTags.entries()));
+        
         for (const [sid, t] of sessionTags.entries()) {
           if (t === tag) {
             targetSessionId = sid;
@@ -341,6 +350,12 @@ app.post("/webhook/waha", async (req, res) => {
             break;
           }
         }
+        
+        if (!targetSessionId) {
+          console.log(`❌ No matching session found for tag: #${tag}`);
+        }
+      } else {
+        console.log(`🔍 No tag found in message: "${message.body}"`);
       }
     }
 
