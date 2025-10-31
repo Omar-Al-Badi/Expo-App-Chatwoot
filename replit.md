@@ -14,6 +14,14 @@ This is a WhatsApp-integrated chat widget for websites and mobile apps that enab
 
 # Recent Changes
 
+## October 31, 2025 - UAE Timezone & Chatwoot Integration
+- **UAE timezone implementation**: All customer inquiry timestamps now use Asia/Dubai timezone (UTC+4) with 12-hour format
+- **Chatwoot reference cleanup**: Automated removal of Chatwoot ticket metadata from business replies
+  - Removes patterns: "Ticket ID: 12345", "[Ticket #12345]", "Ref: #12345", status messages
+  - Preserves multi-line formatting and intentional blank lines
+  - Handles both Unix (LF) and Windows (CRLF) line endings
+- **Result**: Customers see clean timestamps in local UAE time, and replies appear natural without system reference numbers
+
 ## October 26, 2025 - iOS Keyboard Handling with react-native-keyboard-controller
 - **Installed react-native-keyboard-controller**: Modern library specifically designed for chat app keyboard handling
 - **KeyboardProvider wrapper**: App wrapped in KeyboardProvider in _layout.tsx for global keyboard management
