@@ -6,16 +6,16 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 const PORT = 3001;
 
-// Waha configuration
-const WAHA_BASE_URL = process.env.WAHA_BASE_URL || "";
-const WAHA_SESSION = process.env.WAHA_SESSION || "default";
-const WAHA_API_KEY = process.env.WAHA_API_KEY || "";
+// Chatwoot configuration
+const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || "";
+const CHATWOOT_API_TOKEN = process.env.CHATWOOT_API_TOKEN || "";
+const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID || "";
+const CHATWOOT_INBOX_ID = process.env.CHATWOOT_INBOX_ID || "";
 
-let isClientReady = false;
-let qrCodeData = null;
-let businessWhatsAppNumber = null;
+let isClientReady = true;
 
-const inquiriesByMsgId = new Map();
+const conversationBySession = new Map();
+const contactBySession = new Map();
 const sseClients = new Map();
 const pendingBySession = new Map();
 const sessionTags = new Map();
@@ -61,59 +61,130 @@ function formatUAETime(date = new Date()) {
   });
 }
 
-// Clean Chatwoot reference numbers and other system messages from replies
-function cleanReplyMessage(message, sessionId = null) {
-  // Guard against null/undefined
-  if (!message) return '';
-  
-  // Remove common Chatwoot patterns:
-  // - "Your ticket #12345 has been created/opened/resolved/closed"
-  // - "[Ticket #12345]" / "[Ticket ID #12345]"
-  // - "Ref: #12345" / "Reference: #12345"
-  // - "Ticket ID: 12345"
-  // - "(Ticket: #12345)"
-  // - Session tags like "#J9ZC" or "[#J9ZC]" (only if they match an active session)
-  
-  let cleaned = message;
-  
-  // Remove session tag for this specific session to avoid false positives
-  if (sessionId && sessionTags.has(sessionId)) {
-    const tag = sessionTags.get(sessionId);
-    // Remove both [#TAG] and #TAG formats for this specific tag only
-    cleaned = cleaned.replace(new RegExp(`\\[#${tag}\\]`, 'g'), '');
-    // For bare tags, match #TAG at start of string/after whitespace, before whitespace/punctuation/end
-    cleaned = cleaned.replace(new RegExp(`(^|\\s)#${tag}(?=\\s|[^A-Z0-9]|$)`, 'gm'), '$1');
+// Helper function to make Chatwoot API requests
+async function chatwootRequest(endpoint, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    "api_access_token": CHATWOOT_API_TOKEN,
+    ...options.headers,
+  };
+
+  const url = `${CHATWOOT_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Chatwoot API error: ${response.status} - ${errorText}`);
   }
-  
-  // Remove ticket reference patterns with optional "ID" (e.g., "Ticket ID: 12345")
-  cleaned = cleaned.replace(/\[?(?:Ticket(?:\s+ID)?|Ref(?:erence)?)[:\s#]+\d+\]?/gi, '');
-  cleaned = cleaned.replace(/\(?(?:Ticket(?:\s+ID)?|Ref)[:\s]+#?\d+\)?/gi, '');
-  
-  // Remove standalone reference numbers like "#12345" (4 or more digits)
-  cleaned = cleaned.replace(/\b#\d{4,}\b/g, '');
-  
-  // Remove Chatwoot status messages
-  cleaned = cleaned.replace(/Your (?:ticket|request) #?\d+ has been (?:created|opened|logged|resolved|closed|escalated|updated)/gi, '');
-  
-  // Clean up extra whitespace but PRESERVE newlines and blank lines
-  // Split by lines (handle both LF and CRLF), trim each line, and rejoin
-  cleaned = cleaned
-    .split(/\r?\n/)  // Handle both Unix (LF) and Windows (CRLF) line endings
-    .map(line => line.replace(/\s+/g, ' ').trim())  // Collapse spaces within each line
-    .join('\n')  // Keep all lines, including intentional blank lines
-    .trim();
-  
-  return cleaned;
+
+  return response.json();
+}
+
+// Helper to check if string is a valid email
+function isValidEmail(str) {
+  if (!str) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+}
+
+// Create or get contact in Chatwoot
+async function getOrCreateContact(sessionId, customerName, customerEmail) {
+  try {
+    // Check if we already have a contact for this session
+    if (contactBySession.has(sessionId)) {
+      return contactBySession.get(sessionId);
+    }
+
+    // Create a new contact
+    const contactData = {
+      inbox_id: CHATWOOT_INBOX_ID,
+      name: customerName || "Anonymous",
+      identifier: sessionId,
+    };
+
+    // Only add email or phone_number if provided, and in the correct field
+    if (customerEmail) {
+      if (isValidEmail(customerEmail)) {
+        contactData.email = customerEmail;
+      } else {
+        // Assume it's a phone number
+        contactData.phone_number = customerEmail;
+      }
+    }
+
+    const contact = await chatwootRequest(
+      `/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/contacts`,
+      {
+        method: "POST",
+        body: JSON.stringify(contactData),
+      }
+    );
+
+    contactBySession.set(sessionId, contact.payload.contact);
+    return contact.payload.contact;
+  } catch (error) {
+    console.error("Error creating contact:", error.message);
+    throw error;
+  }
+}
+
+// Create conversation in Chatwoot
+async function createConversation(sessionId, contactId) {
+  try {
+    // Check if we already have a conversation for this session
+    if (conversationBySession.has(sessionId)) {
+      return conversationBySession.get(sessionId);
+    }
+
+    const conversationData = {
+      source_id: sessionId,
+      inbox_id: CHATWOOT_INBOX_ID,
+      contact_id: contactId,
+      status: "open",
+    };
+
+    const conversation = await chatwootRequest(
+      `/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations`,
+      {
+        method: "POST",
+        body: JSON.stringify(conversationData),
+      }
+    );
+
+    conversationBySession.set(sessionId, conversation);
+    return conversation;
+  } catch (error) {
+    console.error("Error creating conversation:", error.message);
+    throw error;
+  }
+}
+
+// Send message to Chatwoot conversation
+async function sendChatwootMessage(conversationId, message) {
+  try {
+    const messageData = {
+      content: message,
+      message_type: "incoming",
+      private: false,
+    };
+
+    return await chatwootRequest(
+      `/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify(messageData),
+      }
+    );
+  } catch (error) {
+    console.error("Error sending message:", error.message);
+    throw error;
+  }
 }
 
 function cleanupExpiredSessions() {
   const now = Date.now();
-
-  for (const [msgId, data] of inquiriesByMsgId.entries()) {
-    if (now - data.createdAt > SESSION_TTL) {
-      inquiriesByMsgId.delete(msgId);
-    }
-  }
 
   for (const [sessionId, lastActivity] of sessionActivity.entries()) {
     if (now - lastActivity > SESSION_TTL) {
@@ -121,6 +192,8 @@ function cleanupExpiredSessions() {
       pendingBySession.delete(sessionId);
       sessionActivity.delete(sessionId);
       sseClients.delete(sessionId);
+      conversationBySession.delete(sessionId);
+      contactBySession.delete(sessionId);
       console.log(`🧹 Cleaned up expired session: ${sessionId}`);
     }
   }
@@ -154,250 +227,68 @@ const sendMessageRateLimit = rateLimit({
   validate: { trustProxy: false },
 });
 
-// Helper function to make Waha API requests
-async function wahaRequest(endpoint, options = {}) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  };
-
-  if (WAHA_API_KEY) {
-    headers["X-Api-Key"] = WAHA_API_KEY;
-  }
-
-  const url = `${WAHA_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Waha API error: ${response.status} - ${errorText}`);
-  }
-
-  return response.json();
-}
-
-// Send message via Waha
-async function sendWahaMessage(chatId, text) {
-  return await wahaRequest("/api/sendText", {
-    method: "POST",
-    body: JSON.stringify({
-      session: WAHA_SESSION,
-      chatId: chatId,
-      text: text,
-    }),
-  });
-}
-
-// Check Waha session status
-async function checkWahaStatus() {
-  try {
-    // Get all sessions and find ours
-    const sessions = await wahaRequest("/api/sessions");
-    const sessionData = sessions.find((s) => s.name === WAHA_SESSION);
-
-    if (!sessionData) {
-      console.log(
-        `⚠️ Session "${WAHA_SESSION}" not found. Available sessions:`,
-        sessions.map((s) => s.name),
-      );
-      isClientReady = false;
-      return false;
-    }
-
-    console.log("📊 Session status:", sessionData.status);
-
-    if (sessionData.status === "WORKING") {
-      isClientReady = true;
-      qrCodeData = null;
-
-      // Get business WhatsApp number from session info
-      if (sessionData.me && sessionData.me.id) {
-        businessWhatsAppNumber = sessionData.me.id.split("@")[0];
-        console.log("📱 Business WhatsApp Number:", businessWhatsAppNumber);
-      }
-      return true;
-    } else if (sessionData.status === "SCAN_QR_CODE" && sessionData.qr) {
-      isClientReady = false;
-      qrCodeData = sessionData.qr;
-      console.log("🔄 QR Code available, please scan");
-      return false;
-    } else {
-      isClientReady = false;
-      qrCodeData = null;
-      console.log(`⏸️ Session status: ${sessionData.status}`);
-      return false;
-    }
-  } catch (error) {
-    console.error("Error checking Waha status:", error.message);
-    isClientReady = false;
-    return false;
-  }
-}
-
-// Initialize and check status periodically
-async function initializeWaha() {
-  console.log("Initializing Waha connection...");
-  console.log("Waha URL:", WAHA_BASE_URL);
-  console.log("Session:", WAHA_SESSION);
-
-  await checkWahaStatus();
-
-  // Check status every 10 seconds
-  setInterval(async () => {
-    await checkWahaStatus();
-  }, 10000);
-}
-
-// Webhook endpoint to receive messages from Waha
-app.post("/webhook/waha", async (req, res) => {
+// Webhook endpoint to receive messages from Chatwoot
+app.post("/webhook/chatwoot", async (req, res) => {
   try {
     const event = req.body;
     console.log(
-      "📩 Waha webhook received - FULL DATA:",
+      "📩 Chatwoot webhook received:",
       JSON.stringify(event, null, 2),
     );
 
-    // Only process message events
-    if (event.event !== "message" && event.event !== "message.any") {
+    // Only process message_created events
+    if (event.event !== "message_created") {
       return res.json({ success: true });
     }
 
-    const message = event.payload;
+    const message = event.message;
+    const conversation = event.conversation;
 
-    // Only process messages from business owner (fromMe: true)
-    if (!message.fromMe) {
-      console.log("⏭️ Skipping message (not from business owner)");
+    // Only process outgoing messages (from agent)
+    if (message.message_type !== "outgoing") {
+      console.log("⏭️ Skipping incoming message");
       return res.json({ success: true });
     }
 
-    if (!businessWhatsAppNumber) {
+    // Skip private/internal messages
+    if (message.private) {
+      console.log("⏭️ Skipping private message");
       return res.json({ success: true });
     }
 
-    const chatId = `${businessWhatsAppNumber}@c.us`;
-    if (message.from !== chatId) {
+    // Find the session ID from the conversation source_id
+    const sessionId = conversation.meta?.sender?.identifier || conversation.additional_attributes?.source_id;
+    
+    if (!sessionId) {
+      console.log("⚠️ No session ID found in conversation");
       return res.json({ success: true });
     }
 
-    // Skip if this is our own inquiry message
-    if (message.id && inquiriesByMsgId.has(message.id)) {
-      return res.json({ success: true });
-    }
+    console.log(`📨 Agent reply to session: ${sessionId}`);
 
-    if (
-      message.body.startsWith("🔔 *New Website Inquiry*") ||
-      message.body.startsWith("💡 To reply to a customer")
-    ) {
-      return res.json({ success: true });
-    }
+    const replyMessage = {
+      type: "reply",
+      message: message.content,
+      timestamp: Math.floor(Date.now() / 1000),
+    };
 
-    let targetSessionId = null;
+    updateSessionActivity(sessionId);
 
-    // Check if message is a reply (quoted message) - Waha format
-    if (message.replyTo && message.replyTo.id) {
-      const quotedId = message.replyTo.id;
-      console.log(`🔍 Quoted message ID: ${quotedId}`);
-      console.log(`🔍 Available message IDs:`, Array.from(inquiriesByMsgId.keys()));
-      
-      // Try exact match first
-      let inquiry = inquiriesByMsgId.get(quotedId);
-
-      // If not found, try finding by the short ID (last part after underscore)
-      if (!inquiry) {
-        for (const [msgId, inq] of inquiriesByMsgId.entries()) {
-          if (msgId.endsWith(quotedId)) {
-            console.log(`✅ Found match: ${msgId} ends with ${quotedId}`);
-            inquiry = inq;
-            break;
-          }
-        }
-      }
-
-      if (inquiry) {
-        targetSessionId = inquiry.sessionId;
-        console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
-      } else {
-        console.log(`❌ No matching inquiry found for quoted ID: ${quotedId}`);
-      }
-    }
-    // Also check whatsapp-web.js format for backward compatibility
-    else if (message._data && message._data.quotedMsg) {
-      const quotedId = message._data.quotedMsg.id;
-      let inquiry = inquiriesByMsgId.get(quotedId);
-
-      if (!inquiry) {
-        for (const [msgId, inq] of inquiriesByMsgId.entries()) {
-          if (msgId.endsWith(quotedId)) {
-            inquiry = inq;
-            break;
-          }
-        }
-      }
-
-      if (inquiry) {
-        targetSessionId = inquiry.sessionId;
-        console.log(`📨 Owner reply via quote to session: ${targetSessionId}`);
-      }
-    }
-
-    // Check for session tag in message
-    if (!targetSessionId) {
-      const tagMatch = message.body.match(/(?:\[#|#)([A-Z0-9]{4})\]?/);
-      if (tagMatch) {
-        const tag = tagMatch[1];
-        console.log(`🔍 Found tag in message: #${tag}`);
-        console.log(`🔍 Available session tags:`, Array.from(sessionTags.entries()));
-        
-        for (const [sid, t] of sessionTags.entries()) {
-          if (t === tag) {
-            targetSessionId = sid;
-            console.log(
-              `📨 Owner reply via tag #${tag} to session: ${targetSessionId}`,
-            );
-            break;
-          }
-        }
-        
-        if (!targetSessionId) {
-          console.log(`❌ No matching session found for tag: #${tag}`);
-        }
-      } else {
-        console.log(`🔍 No tag found in message: "${message.body}"`);
-      }
-    }
-
-    if (targetSessionId) {
-      const replyMessage = {
-        type: "reply",
-        message: cleanReplyMessage(message.body, targetSessionId),
-        timestamp: Math.floor(Date.now() / 1000),
-      };
-
-      updateSessionActivity(targetSessionId);
-
-      if (sseClients.has(targetSessionId)) {
-        const clients = sseClients.get(targetSessionId);
-        clients.forEach((client) => {
-          client.write(`data: ${JSON.stringify(replyMessage)}\n\n`);
-        });
-        console.log(
-          `✅ Reply delivered to session: ${targetSessionId} (${clients.size} client(s))`,
-        );
-      } else {
-        if (!pendingBySession.has(targetSessionId)) {
-          pendingBySession.set(targetSessionId, []);
-        }
-        pendingBySession.get(targetSessionId).push(replyMessage);
-        console.log(`📥 Reply queued for session: ${targetSessionId}`);
-      }
+    // Deliver message via SSE or queue it
+    if (sseClients.has(sessionId)) {
+      const clients = sseClients.get(sessionId);
+      clients.forEach((client) => {
+        client.write(`data: ${JSON.stringify(replyMessage)}\n\n`);
+      });
+      console.log(
+        `✅ Reply delivered to session: ${sessionId} (${clients.size} client(s))`,
+      );
     } else {
-      const hintMsg =
-        "💡 To reply to a customer, either:\n• Quote their message, or\n• Include the session tag like #TAG in your reply";
-      await sendWahaMessage(chatId, hintMsg);
-      console.log("⚠️ Owner reply without valid session - sent hint");
+      if (!pendingBySession.has(sessionId)) {
+        pendingBySession.set(sessionId, []);
+      }
+      pendingBySession.get(sessionId).push(replyMessage);
+      console.log(`📥 Reply queued for session: ${sessionId}`);
     }
 
     res.json({ success: true });
@@ -478,7 +369,7 @@ app.get("/api/poll-replies", (req, res) => {
   res.json({ replies: [] });
 });
 
-// Send message endpoint - sends customer inquiries TO the business owner
+// Send message endpoint - sends customer inquiries to Chatwoot
 app.post("/api/send-message", sendMessageRateLimit, async (req, res) => {
   try {
     const { customerName, message, customerEmail, sessionId } = req.body;
@@ -499,54 +390,37 @@ app.post("/api/send-message", sendMessageRateLimit, async (req, res) => {
       return res.status(400).json({ error: "sessionId is required" });
     }
 
-    if (!isClientReady) {
-      console.log("❌ WhatsApp client not ready");
-      return res.status(503).json({
-        error: "WhatsApp client not ready",
-        qrCode: qrCodeData
-          ? "Please scan QR code first"
-          : "Client is initializing",
-      });
-    }
-
-    if (!businessWhatsAppNumber) {
-      console.log("❌ Business WhatsApp number not available");
-      return res.status(503).json({
-        error: "Business WhatsApp number not configured",
-      });
-    }
-
-    const chatId = `${businessWhatsAppNumber}@c.us`;
     const sessionTag = getTagForSession(sessionId);
 
+    // Create or get contact
+    const contact = await getOrCreateContact(sessionId, customerName, customerEmail);
+    console.log("✅ Contact ready:", contact.id);
+
+    // Create or get conversation
+    const conversation = await createConversation(sessionId, contact.id);
+    console.log("✅ Conversation ready:", conversation.id);
+
+    // Format the message with customer info
     const formattedMessage =
-      `🔔 *New Website Inquiry* [#${sessionTag}]\n\n` +
       `👤 From: ${customerName || "Anonymous"}\n` +
-      `${customerEmail ? `📱 Phone: ${customerEmail}\n` : ""}` +
+      `${customerEmail ? `📱 Contact: ${customerEmail}\n` : ""}` +
       `\n💬 Message:\n${message}\n\n` +
-      `⏰ ${formatUAETime()}`;
+      `⏰ ${formatUAETime()}\n` +
+      `🔖 Session: #${sessionTag}`;
 
-    console.log("📱 Sending to business WhatsApp:", chatId);
-
-    const sentMessage = await sendWahaMessage(chatId, formattedMessage);
-    console.log("✅ Message sent successfully:", sentMessage.id);
+    // Send message to Chatwoot
+    const sentMessage = await sendChatwootMessage(conversation.id, formattedMessage);
+    console.log("✅ Message sent to Chatwoot:", sentMessage.id);
 
     updateSessionActivity(sessionId);
-
-    inquiriesByMsgId.set(sentMessage.id, {
-      sessionId,
-      customerName,
-      customerEmail,
-      createdAt: Date.now(),
-      tag: sessionTag,
-    });
 
     res.json({
       success: true,
       data: {
         id: sentMessage.id,
-        timestamp: sentMessage.timestamp || Math.floor(Date.now() / 1000),
+        timestamp: Math.floor(Date.now() / 1000),
         sessionTag,
+        conversationId: conversation.id,
       },
     });
   } catch (error) {
@@ -559,85 +433,23 @@ app.post("/api/send-message", sendMessageRateLimit, async (req, res) => {
   }
 });
 
-// Get QR code endpoint (for authentication) - localhost only
-app.get("/api/qr-code", localhostOnly, (req, res) => {
-  if (isClientReady) {
-    res.json({
-      ready: true,
-      message: "WhatsApp client is ready",
-    });
-  } else if (qrCodeData) {
-    res.json({
-      ready: false,
-      qrCode: qrCodeData,
-      message: "Scan QR code with WhatsApp",
-    });
-  } else {
-    res.json({
-      ready: false,
-      message: "Initializing...",
-    });
-  }
-});
-
-// Get session status endpoint - localhost only
-app.get("/api/sessions", localhostOnly, async (req, res) => {
-  try {
-    await checkWahaStatus();
-
-    const sessionInfo = {
-      status: isClientReady ? "ready" : "not_ready",
-      authenticated: isClientReady,
-      needsQR: !isClientReady && qrCodeData !== null,
-    };
-
-    if (isClientReady && businessWhatsAppNumber) {
-      sessionInfo.info = {
-        phone: businessWhatsAppNumber,
-      };
-    }
-
-    res.json(sessionInfo);
-  } catch (error) {
-    console.error("Error fetching session info:", error.message);
-    res.status(500).json({ error: "Failed to fetch session info" });
-  }
-});
-
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    whatsappReady: isClientReady,
-    service: "waha",
+    chatwootReady: isClientReady,
+    service: "chatwoot",
   });
 });
 
-// Logout/disconnect endpoint - localhost only
-app.post("/api/logout", localhostOnly, async (req, res) => {
-  try {
-    await wahaRequest(`/api/sessions/${WAHA_SESSION}/logout`, {
-      method: "POST",
-    });
-    isClientReady = false;
-    qrCodeData = null;
-    businessWhatsAppNumber = null;
-    res.json({ success: true, message: "Logged out successfully" });
-  } catch (error) {
-    console.error("Error logging out:", error.message);
-    res.status(500).json({ error: "Failed to logout" });
-  }
-});
-
-// Initialize Waha
-initializeWaha();
-
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Backend server running on port ${PORT}`);
-  console.log(`WhatsApp service: Waha`);
-  console.log(`Waha URL: ${WAHA_BASE_URL}`);
+  console.log(`Chat service: Chatwoot`);
+  console.log(`Chatwoot URL: ${CHATWOOT_BASE_URL}`);
+  console.log(`Account ID: ${CHATWOOT_ACCOUNT_ID}`);
+  console.log(`Inbox ID: ${CHATWOOT_INBOX_ID}`);
   console.log(`CORS: Open (all origins allowed)`);
   console.log(
-    `\n⚠️  IMPORTANT: Configure Waha webhook to: http://YOUR_REPLIT_URL:${PORT}/webhook/waha`,
+    `\n⚠️  IMPORTANT: Configure Chatwoot webhook to: https://YOUR_REPLIT_URL/webhook/chatwoot`,
   );
 });

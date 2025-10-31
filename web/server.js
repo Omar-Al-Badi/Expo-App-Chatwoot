@@ -23,11 +23,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Webhook endpoint - forwards to backend
-app.post('/webhook/waha', async (req, res) => {
+// Webhook endpoint - forwards Chatwoot webhooks to backend
+app.post('/webhook/chatwoot', async (req, res) => {
   try {
-    console.log('📩 Webhook received on port 5000, forwarding to backend...');
-    const response = await fetch('http://localhost:3001/webhook/waha', {
+    console.log('📩 Chatwoot webhook received on port 5000, forwarding to backend...');
+    const response = await fetch('http://localhost:3001/webhook/chatwoot', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
