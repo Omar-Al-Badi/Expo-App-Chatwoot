@@ -63,27 +63,35 @@ function formatUAETime(date = new Date()) {
 
 // Clean Chatwoot reference numbers and other system messages from replies
 function cleanReplyMessage(message) {
+  // Guard against null/undefined
+  if (!message) return '';
+  
   // Remove common Chatwoot patterns:
-  // - "Your ticket #12345 has been created"
-  // - "[Ticket #12345]"
-  // - "Ref: #12345"
-  // - "Reference: #12345"
+  // - "Your ticket #12345 has been created/opened/resolved/closed"
+  // - "[Ticket #12345]" / "[Ticket ID #12345]"
+  // - "Ref: #12345" / "Reference: #12345"
+  // - "Ticket ID: 12345"
   // - "(Ticket: #12345)"
   
   let cleaned = message;
   
-  // Remove ticket reference patterns
-  cleaned = cleaned.replace(/\[?(?:Ticket|Ref(?:erence)?)[:\s#]+\d+\]?/gi, '');
-  cleaned = cleaned.replace(/\(?(?:Ticket|Ref)[:\s]+#?\d+\)?/gi, '');
+  // Remove ticket reference patterns with optional "ID" (e.g., "Ticket ID: 12345")
+  cleaned = cleaned.replace(/\[?(?:Ticket(?:\s+ID)?|Ref(?:erence)?)[:\s#]+\d+\]?/gi, '');
+  cleaned = cleaned.replace(/\(?(?:Ticket(?:\s+ID)?|Ref)[:\s]+#?\d+\)?/gi, '');
   
-  // Remove standalone reference numbers like "#12345"
+  // Remove standalone reference numbers like "#12345" (4 or more digits)
   cleaned = cleaned.replace(/\b#\d{4,}\b/g, '');
   
-  // Remove "Your ticket has been created" type messages
-  cleaned = cleaned.replace(/Your (?:ticket|request) #?\d+ has been (?:created|opened|logged)/gi, '');
+  // Remove Chatwoot status messages
+  cleaned = cleaned.replace(/Your (?:ticket|request) #?\d+ has been (?:created|opened|logged|resolved|closed|escalated|updated)/gi, '');
   
-  // Clean up extra whitespace and newlines
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  // Clean up extra whitespace but PRESERVE newlines and blank lines
+  // Split by lines (handle both LF and CRLF), trim each line, and rejoin
+  cleaned = cleaned
+    .split(/\r?\n/)  // Handle both Unix (LF) and Windows (CRLF) line endings
+    .map(line => line.replace(/\s+/g, ' ').trim())  // Collapse spaces within each line
+    .join('\n')  // Keep all lines, including intentional blank lines
+    .trim();
   
   return cleaned;
 }
