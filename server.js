@@ -92,9 +92,31 @@ function isValidEmail(str) {
 // Create or get contact in Chatwoot
 async function getOrCreateContact(sessionId, customerName, customerEmail) {
   try {
-    // Check if we already have a contact for this session
+    // Check if we already have a contact for this session in memory
     if (contactBySession.has(sessionId)) {
       return contactBySession.get(sessionId);
+    }
+
+    // Try to find existing contact by identifier
+    try {
+      const searchResults = await chatwootRequest(
+        `/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/contacts/search?q=${encodeURIComponent(sessionId)}`
+      );
+      
+      if (searchResults.payload && searchResults.payload.length > 0) {
+        // Find contact with matching identifier
+        const existingContact = searchResults.payload.find(
+          c => c.identifier === sessionId
+        );
+        
+        if (existingContact) {
+          console.log("✅ Found existing contact:", existingContact.id);
+          contactBySession.set(sessionId, existingContact);
+          return existingContact;
+        }
+      }
+    } catch (searchError) {
+      console.log("Contact search failed, creating new:", searchError.message);
     }
 
     // Create a new contact
@@ -108,10 +130,8 @@ async function getOrCreateContact(sessionId, customerName, customerEmail) {
     if (customerEmail) {
       if (isValidEmail(customerEmail)) {
         contactData.email = customerEmail;
-      } else {
-        // Assume it's a phone number
-        contactData.phone_number = customerEmail;
       }
+      // Skip phone_number if not in E.164 format - Chatwoot is strict about this
     }
 
     const contact = await chatwootRequest(
@@ -123,6 +143,7 @@ async function getOrCreateContact(sessionId, customerName, customerEmail) {
     );
 
     contactBySession.set(sessionId, contact.payload.contact);
+    console.log("✅ Created new contact:", contact.payload.contact.id);
     return contact.payload.contact;
   } catch (error) {
     console.error("Error creating contact:", error.message);
@@ -133,9 +154,31 @@ async function getOrCreateContact(sessionId, customerName, customerEmail) {
 // Create conversation in Chatwoot
 async function createConversation(sessionId, contactId) {
   try {
-    // Check if we already have a conversation for this session
+    // Check if we already have a conversation for this session in memory
     if (conversationBySession.has(sessionId)) {
       return conversationBySession.get(sessionId);
+    }
+
+    // Try to find existing conversation by source_id
+    try {
+      const conversations = await chatwootRequest(
+        `/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations`
+      );
+      
+      if (conversations.data && conversations.data.payload) {
+        const existingConversation = conversations.data.payload.find(
+          c => c.meta?.sender?.identifier === sessionId || 
+               c.additional_attributes?.source_id === sessionId
+        );
+        
+        if (existingConversation) {
+          console.log("✅ Found existing conversation:", existingConversation.id);
+          conversationBySession.set(sessionId, existingConversation);
+          return existingConversation;
+        }
+      }
+    } catch (searchError) {
+      console.log("Conversation search failed, creating new:", searchError.message);
     }
 
     const conversationData = {
@@ -154,6 +197,7 @@ async function createConversation(sessionId, contactId) {
     );
 
     conversationBySession.set(sessionId, conversation);
+    console.log("✅ Created new conversation:", conversation.id);
     return conversation;
   } catch (error) {
     console.error("Error creating conversation:", error.message);
