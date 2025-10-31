@@ -1,13 +1,13 @@
 # Dockerfile for Chatwoot Chat Backend
-FROM node:22-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy backend-specific package file (only 4 dependencies instead of 50+)
+COPY backend-package.json package.json
 
-# Install dependencies
-RUN npm ci
+# Install dependencies - much faster with minimal packages
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copy application files
 COPY server.js ./
