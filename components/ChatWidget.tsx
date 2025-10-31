@@ -358,18 +358,21 @@ const styles = StyleSheet.create({
   chatWindow: {
     alignSelf: "stretch",
     width: "100%",
-    minHeight: 360,
-    maxHeight: "80%",
+    height: 500,
+    maxHeight: "75%",
     borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "#fff",
     zIndex: 1001,
     ...Platform.select({
-      default: {
+      ios: {
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 10,
+        shadowRadius: 40,
+      },
+      android: {
+        elevation: 15,
       },
     }),
   },
@@ -377,20 +380,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: "#128C7E",
   },
   headerText: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "600",
     color: "#fff",
+    letterSpacing: 0.2,
   },
   closeButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   closeButtonText: {
     color: "#fff",
-    fontSize: 24,
+    fontSize: 22,
+    fontWeight: "300",
   },
   messagesContainer: {
     flex: 1,
@@ -411,10 +422,21 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   messageBubble: {
-    maxWidth: "80%",
+    maxWidth: "75%",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 18,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   userBubble: {
     backgroundColor: "#DCF8C6",
@@ -425,8 +447,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   messageText: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 20,
   },
   userMessageText: {
     color: "#000000",
@@ -436,19 +458,24 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: "row",
-    padding: 12,
-    gap: 10,
-    alignItems: "flex-end",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    alignItems: "center",
     backgroundColor: "#F0F0F0",
     borderTopWidth: 1,
-    borderTopColor: "#D1D1D1",
+    borderTopColor: "#E0E0E0",
   },
   input: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+    fontSize: 15,
+    maxHeight: 100,
   },
   sendButton: {
-    backgroundColor: "#128C7E",
+    backgroundColor: "#25D366",
+    borderRadius: 8,
+    paddingHorizontal: 20,
   },
   floatingButton: {
     position: "absolute",
@@ -461,11 +488,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#25D366",
     zIndex: 1002,
     ...Platform.select({
-      default: {
+      ios: {
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 12,
       },
     }),
   },
@@ -475,24 +505,28 @@ const styles = StyleSheet.create({
   },
   setupContainer: {
     flex: 1,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 40,
     justifyContent: "center",
-    gap: 16,
+    gap: 14,
     backgroundColor: "#ECE5DD",
   },
   setupText: {
-    fontSize: 18,
-    marginBottom: 16,
+    fontSize: 17,
+    marginBottom: 20,
     textAlign: "center",
     color: "#333",
     fontWeight: "500",
+    lineHeight: 24,
   },
   textInput: {
-    marginBottom: 12,
+    marginBottom: 8,
     backgroundColor: "#FFFFFF",
   },
   connectButton: {
-    marginTop: 16,
+    marginTop: 12,
     backgroundColor: "#25D366",
+    borderRadius: 8,
+    paddingVertical: 6,
   },
 });
