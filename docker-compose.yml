@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Caddy web server with automatic SSL
+  caddy:
+    image: caddy:2-alpine
+    container_name: chatwoot-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./web:/var/www/html
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - chatwoot-network
+    depends_on:
+      - backend
+
+  # Node.js backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatwoot-backend
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      - CHATWOOT_BASE_URL=${CHATWOOT_BASE_URL}
+      - CHATWOOT_API_TOKEN=${CHATWOOT_API_TOKEN}
+      - CHATWOOT_ACCOUNT_ID=${CHATWOOT_ACCOUNT_ID}
+      - CHATWOOT_INBOX_ID=${CHATWOOT_INBOX_ID}
+      - PORT=3001
+    networks:
+      - chatwoot-network
+    volumes:
+      - ./server.js:/app/server.js:ro
+
+networks:
+  chatwoot-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local

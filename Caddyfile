@@ -1,8 +1,8 @@
-# Caddyfile for Chatwoot Chat Widget
+# Caddyfile for Chatwoot Chat Widget (Docker)
 # Caddy automatically gets SSL certificates from Let's Encrypt
 
 {
-    # Optional: Add your email for SSL certificate notifications
+    # Add your email for SSL certificate notifications
     email your-email@example.com
 }
 
@@ -11,18 +11,15 @@ yourdomain.com {
     # Enable encoding (compression)
     encode gzip
 
-    # Serve static web frontend files
-    root * /path/to/web
-    
-    # Proxy webhook endpoint to backend
+    # Proxy webhook endpoint to backend container
     handle /webhook/* {
-        reverse_proxy localhost:3001
+        reverse_proxy backend:3001
     }
     
-    # Proxy API endpoints to backend
+    # Proxy API endpoints to backend container
     handle /api/* {
-        reverse_proxy localhost:3001 {
-            # Preserve headers for SSE
+        reverse_proxy backend:3001 {
+            # Preserve headers for SSE (Server-Sent Events)
             header_up Connection {>Connection}
             header_up Upgrade {>Upgrade}
             
@@ -30,16 +27,20 @@ yourdomain.com {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
+            
+            # Increase timeouts for long-polling and SSE
+            flush_interval -1
         }
     }
     
-    # Serve static files for everything else
+    # Serve static web frontend files
+    root * /var/www/html
     file_server
 }
 
-# Optional: Separate subdomain for Chatwoot integration
+# Optional: Separate subdomain for API
 # api.yourdomain.com {
-#     reverse_proxy localhost:3001 {
+#     reverse_proxy backend:3001 {
 #         header_up X-Real-IP {remote_host}
 #         header_up X-Forwarded-For {remote_host}
 #         header_up X-Forwarded-Proto {scheme}
