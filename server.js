@@ -241,23 +241,28 @@ app.post("/webhook/chatwoot", async (req, res) => {
       return res.json({ success: true });
     }
 
-    const message = event.message;
+    // In Chatwoot webhooks, message data is at the root level
+    const messageType = event.message_type;
     const conversation = event.conversation;
+    const content = event.content;
+    const isPrivate = event.private;
 
     // Only process outgoing messages (from agent)
-    if (message.message_type !== "outgoing") {
+    if (messageType !== "outgoing") {
       console.log("⏭️ Skipping incoming message");
       return res.json({ success: true });
     }
 
     // Skip private/internal messages
-    if (message.private) {
+    if (isPrivate) {
       console.log("⏭️ Skipping private message");
       return res.json({ success: true });
     }
 
     // Find the session ID from the conversation source_id
-    const sessionId = conversation.meta?.sender?.identifier || conversation.additional_attributes?.source_id;
+    const sessionId = conversation?.meta?.sender?.identifier || 
+                      conversation?.contact_inbox?.source_id ||
+                      conversation?.additional_attributes?.source_id;
     
     if (!sessionId) {
       console.log("⚠️ No session ID found in conversation");
@@ -268,7 +273,7 @@ app.post("/webhook/chatwoot", async (req, res) => {
 
     const replyMessage = {
       type: "reply",
-      message: message.content,
+      message: content,
       timestamp: Math.floor(Date.now() / 1000),
     };
 
