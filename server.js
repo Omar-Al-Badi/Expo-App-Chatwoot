@@ -62,7 +62,7 @@ function formatUAETime(date = new Date()) {
 }
 
 // Clean Chatwoot reference numbers and other system messages from replies
-function cleanReplyMessage(message) {
+function cleanReplyMessage(message, sessionId = null) {
   // Guard against null/undefined
   if (!message) return '';
   
@@ -72,8 +72,18 @@ function cleanReplyMessage(message) {
   // - "Ref: #12345" / "Reference: #12345"
   // - "Ticket ID: 12345"
   // - "(Ticket: #12345)"
+  // - Session tags like "#J9ZC" or "[#J9ZC]" (only if they match an active session)
   
   let cleaned = message;
+  
+  // Remove session tag for this specific session to avoid false positives
+  if (sessionId && sessionTags.has(sessionId)) {
+    const tag = sessionTags.get(sessionId);
+    // Remove both [#TAG] and #TAG formats for this specific tag only
+    cleaned = cleaned.replace(new RegExp(`\\[#${tag}\\]`, 'g'), '');
+    // For bare tags, match #TAG at start of string/after whitespace, before whitespace/punctuation/end
+    cleaned = cleaned.replace(new RegExp(`(^|\\s)#${tag}(?=\\s|[^A-Z0-9]|$)`, 'gm'), '$1');
+  }
   
   // Remove ticket reference patterns with optional "ID" (e.g., "Ticket ID: 12345")
   cleaned = cleaned.replace(/\[?(?:Ticket(?:\s+ID)?|Ref(?:erence)?)[:\s#]+\d+\]?/gi, '');
@@ -362,7 +372,7 @@ app.post("/webhook/waha", async (req, res) => {
     if (targetSessionId) {
       const replyMessage = {
         type: "reply",
-        message: cleanReplyMessage(message.body),
+        message: cleanReplyMessage(message.body, targetSessionId),
         timestamp: Math.floor(Date.now() / 1000),
       };
 
