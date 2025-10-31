@@ -47,6 +47,47 @@ function updateSessionActivity(sessionId) {
   sessionActivity.set(sessionId, Date.now());
 }
 
+// Format date in UAE timezone (Asia/Dubai, UTC+4)
+function formatUAETime(date = new Date()) {
+  return date.toLocaleString('en-US', {
+    timeZone: 'Asia/Dubai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+}
+
+// Clean Chatwoot reference numbers and other system messages from replies
+function cleanReplyMessage(message) {
+  // Remove common Chatwoot patterns:
+  // - "Your ticket #12345 has been created"
+  // - "[Ticket #12345]"
+  // - "Ref: #12345"
+  // - "Reference: #12345"
+  // - "(Ticket: #12345)"
+  
+  let cleaned = message;
+  
+  // Remove ticket reference patterns
+  cleaned = cleaned.replace(/\[?(?:Ticket|Ref(?:erence)?)[:\s#]+\d+\]?/gi, '');
+  cleaned = cleaned.replace(/\(?(?:Ticket|Ref)[:\s]+#?\d+\)?/gi, '');
+  
+  // Remove standalone reference numbers like "#12345"
+  cleaned = cleaned.replace(/\b#\d{4,}\b/g, '');
+  
+  // Remove "Your ticket has been created" type messages
+  cleaned = cleaned.replace(/Your (?:ticket|request) #?\d+ has been (?:created|opened|logged)/gi, '');
+  
+  // Clean up extra whitespace and newlines
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+}
+
 function cleanupExpiredSessions() {
   const now = Date.now();
 
