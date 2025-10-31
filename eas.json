@@ -13,12 +13,15 @@
       },
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://cdf89dd4-d4dd-4308-a38c-e5cd4e09c85a-00-1r5kjj50r65mj.pike.replit.dev"
+        "EXPO_PUBLIC_BACKEND_URL": "https://a76c2da9-dfbe-45f9-b697-492142751df7-00-2hijux7eztns0.pike.replit.dev"
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://a76c2da9-dfbe-45f9-b697-492142751df7-00-2hijux7eztns0.pike.replit.dev"
       }
     }
   },
