@@ -339,7 +339,7 @@ app.post("/webhook/waha", async (req, res) => {
     if (targetSessionId) {
       const replyMessage = {
         type: "reply",
-        message: message.body,
+        message: cleanReplyMessage(message.body),
         timestamp: Math.floor(Date.now() / 1000),
       };
 
@@ -491,7 +491,7 @@ app.post("/api/send-message", sendMessageRateLimit, async (req, res) => {
       `👤 From: ${customerName || "Anonymous"}\n` +
       `${customerEmail ? `📱 Phone: ${customerEmail}\n` : ""}` +
       `\n💬 Message:\n${message}\n\n` +
-      `⏰ ${new Date().toLocaleString()}`;
+      `⏰ ${formatUAETime()}`;
 
     console.log("📱 Sending to business WhatsApp:", chatId);
 
