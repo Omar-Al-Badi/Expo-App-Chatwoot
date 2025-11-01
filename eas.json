@@ -13,7 +13,7 @@
       },
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://a76c2da9-dfbe-45f9-b697-492142751df7-00-2hijux7eztns0.pike.replit.dev"
+        "EXPO_PUBLIC_BACKEND_URL": "https://333111000.xyz"
       }
     },
     "production": {
@@ -21,7 +21,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://a76c2da9-dfbe-45f9-b697-492142751df7-00-2hijux7eztns0.pike.replit.dev"
+        "EXPO_PUBLIC_BACKEND_URL": "https://333111000.xyz"
       }
     }
   },

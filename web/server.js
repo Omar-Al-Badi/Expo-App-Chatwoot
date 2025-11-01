@@ -27,7 +27,7 @@ app.get('/', (req, res) => {
 app.post('/webhook/chatwoot', async (req, res) => {
   try {
     console.log('📩 Chatwoot webhook received on port 5000, forwarding to backend...');
-    const response = await fetch('http://localhost:3001/webhook/chatwoot', {
+    const response = await fetch('http://localhost:3000/webhook/chatwoot', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ app.post('/webhook/chatwoot', async (req, res) => {
 app.get('/api/poll-replies', async (req, res) => {
   try {
     const sessionId = req.query.sessionId;
-    const response = await fetch(`http://localhost:3001/api/poll-replies?sessionId=${sessionId}`);
+    const response = await fetch(`http://localhost:3000/api/poll-replies?sessionId=${sessionId}`);
     const data = await response.json();
     res.status(response.status).json(data);
   } catch (error) {
@@ -67,7 +67,7 @@ app.post('/api/send-message', messageLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Message too long. Maximum 1000 characters.' });
   }
   try {
-    const response = await fetch('http://localhost:3001/api/send-message', {
+    const response = await fetch('http://localhost:3000/api/send-message', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

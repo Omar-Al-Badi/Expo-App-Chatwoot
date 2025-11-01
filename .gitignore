@@ -44,3 +44,6 @@ yarn-error.*
 WEBHOOK_CONFIG.txt
 
 app-example
+caddy_logs/333111000.access.log
+caddy_logs/expo.333111000.access.log
+.env

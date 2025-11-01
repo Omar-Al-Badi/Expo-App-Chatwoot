@@ -1,48 +1,64 @@
-# Caddyfile for Chatwoot Chat Widget (Docker)
-# Caddy automatically gets SSL certificates from Let's Encrypt
+# Caddyfile for 333111000.xyz
+# - Express (server.js) on port 3000: handles /webhook/chatwoot and /api/*
+# - Expo on port 8080: handles root and other paths
+# - Both served over HTTPS (443) without ports in URL
 
-{
-    # Add your email for SSL certificate notifications
-    email your-email@example.com
-}
-
-# Replace 'yourdomain.com' with your actual domain
-yourdomain.com {
-    # Enable encoding (compression)
-    encode gzip
-
-    # Proxy webhook endpoint to backend container
-    handle /webhook/* {
-        reverse_proxy backend:3001
+333111000.xyz {
+    # Access logs
+    log {
+        output file /var/log/caddy/333111000.access.log {
+            roll_size 10mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        level INFO
     }
-    
-    # Proxy API endpoints to backend container
-    handle /api/* {
-        reverse_proxy backend:3001 {
-            # Preserve headers for SSE (Server-Sent Events)
-            header_up Connection {>Connection}
-            header_up Upgrade {>Upgrade}
-            
-            # Add real IP headers
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-            
-            # Increase timeouts for long-polling and SSE
-            flush_interval -1
+
+    # Chatwoot webhook -> Express on port 3000
+    route /webhook/chatwoot* {
+        reverse_proxy 127.0.0.1:3000 {
+            transport http {
+                dial_timeout 3s
+                read_timeout 30s
+            }
         }
     }
-    
-    # Serve static web frontend files
-    root * /var/www/html
-    file_server
-}
 
-# Optional: Separate subdomain for API
-# api.yourdomain.com {
-#     reverse_proxy backend:3001 {
-#         header_up X-Real-IP {remote_host}
-#         header_up X-Forwarded-For {remote_host}
-#         header_up X-Forwarded-Proto {scheme}
-#     }
-# }
+    # API paths -> Express
+    route /api/* {
+        reverse_proxy 127.0.0.1:3000 {
+            transport http {
+                dial_timeout 3s
+                read_timeout 30s
+            }
+        }
+    }
+
+    # Health forwarded to Express
+    route /api/health* {
+        reverse_proxy 127.0.0.1:3000
+    }
+
+    # Fallback: serve Expo (root) over HTTPS
+    route /* {
+        reverse_proxy 127.0.0.1:8080 {
+            transport http {
+                dial_timeout 3s
+                read_timeout 0
+            }
+        }
+    }
+
+    # Friendly error if upstream is down
+    handle_errors {
+        @backend502 expression `{http.error.status_code} == 502`
+        respond @backend502 "Service temporarily unavailable (backend down)." 502
+    }
+
+    # Useful security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+    }
+}

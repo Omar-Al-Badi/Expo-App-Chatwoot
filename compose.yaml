@@ -1,0 +1,18 @@
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    # Use host networking so Caddy can reach services running on the host
+    # (e.g. Node on localhost:3000 and Expo on localhost:8080) without running them in Docker.
+    # On Linux this maps container network to the host network namespace.
+    network_mode: "host"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./caddy_logs:/var/log/caddy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

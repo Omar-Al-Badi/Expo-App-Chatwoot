@@ -91,7 +91,7 @@ export function ChatWidget() {
 
   const connectToSSE = async (sessionId: string) => {
     const backendUrl =
-      process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:3001";
+      process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:3000";
     const pollUrl = `${backendUrl}/api/poll-replies?sessionId=${sessionId}`;
 
     console.log("🔄 Starting reply polling for session:", sessionId);
@@ -148,7 +148,7 @@ export function ChatWidget() {
 
     try {
       const backendUrl =
-        process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:3001";
+        process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:3000";
       const sessionId = await getOrCreateSessionId();
 
       console.log("🔌 Sending message to backend:", backendUrl);

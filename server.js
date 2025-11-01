@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 const rateLimit = require("express-rate-limit");
 
 const app = express();
-const PORT = 3001;
+const PORT = 3000;
 
 // Chatwoot configuration
 const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || "";
@@ -13,6 +13,22 @@ const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID || "";
 const CHATWOOT_INBOX_ID = process.env.CHATWOOT_INBOX_ID || "";
 
 let isClientReady = true;
+let hasReceivedWebhookCallback = false;
+let webhookHintLogged = false;
+
+// Validate required Chatwoot configuration at startup.
+// If missing, mark the service as not ready and provide helpful logs.
+const missingConfig = [];
+if (!CHATWOOT_BASE_URL) missingConfig.push('CHATWOOT_BASE_URL');
+if (!CHATWOOT_API_TOKEN) missingConfig.push('CHATWOOT_API_TOKEN');
+if (!CHATWOOT_ACCOUNT_ID) missingConfig.push('CHATWOOT_ACCOUNT_ID');
+if (!CHATWOOT_INBOX_ID) missingConfig.push('CHATWOOT_INBOX_ID');
+
+if (missingConfig.length > 0) {
+  console.warn(`⚠️  Missing Chatwoot configuration: ${missingConfig.join(', ')}`);
+  console.warn('❗ The /api/send-message endpoint will return an explanatory error until these are set.');
+  isClientReady = false;
+}
 
 const conversationBySession = new Map();
 const contactBySession = new Map();
@@ -280,37 +296,93 @@ app.post("/webhook/chatwoot", async (req, res) => {
       JSON.stringify(event, null, 2),
     );
 
-    // Only process message_created events
-    if (event.event !== "message_created") {
+    hasReceivedWebhookCallback = true;
+
+    // Chatwoot may wrap payload under a data object, fall back to root level if absent.
+    const payload = event.data && typeof event.data === "object" ? event.data : event;
+
+    if (payload.event && payload.event !== "message_created") {
       return res.json({ success: true });
     }
 
-    // In Chatwoot webhooks, message data is at the root level
-    const messageType = event.message_type;
-    const conversation = event.conversation;
-    const content = event.content;
-    const isPrivate = event.private;
+    if (event.event && event.event !== "message_created") {
+      return res.json({ success: true });
+    }
 
-    // Only process outgoing messages (from agent)
+    let message = payload.message || event.message;
+    if (!message && (payload.message_type || event.message_type)) {
+      message = {
+        message_type: payload.message_type ?? event.message_type,
+        private: payload.private ?? event.private,
+        content: payload.content ?? event.content,
+        additional_attributes:
+          payload.additional_attributes ?? event.additional_attributes,
+        sender: payload.sender ?? event.sender,
+        conversation: payload.conversation || event.conversation,
+      };
+    }
+    const conversation =
+      payload.conversation ||
+      event.conversation ||
+      message?.conversation ||
+      payload.additional_attributes?.conversation ||
+      event.additional_attributes?.conversation;
+
+    const messageType =
+      message?.message_type ?? event.message_type ?? payload.message_type;
+    if (!message || !messageType) {
+      console.log("⚠️ No message payload or type; skipping");
+      return res.json({ success: true });
+    }
+
+    const isPrivate =
+      Boolean(message?.private ?? event.private ?? payload.private);
+    const content = message?.content ?? event.content ?? payload.content;
+
     if (messageType !== "outgoing") {
       console.log("⏭️ Skipping incoming message");
       return res.json({ success: true });
     }
 
-    // Skip private/internal messages
     if (isPrivate) {
       console.log("⏭️ Skipping private message");
       return res.json({ success: true });
     }
 
-    // Find the session ID from the conversation source_id
-    const sessionId = conversation?.meta?.sender?.identifier || 
-                      conversation?.contact_inbox?.source_id ||
-                      conversation?.additional_attributes?.source_id;
-    
+    let conversationId =
+      conversation?.id ||
+      message?.conversation_id ||
+      payload.conversation_id ||
+      event.conversation_id;
+
+    const sessionId =
+      conversation?.meta?.sender?.identifier ||
+      conversation?.contact_inbox?.source_id ||
+      conversation?.additional_attributes?.source_id ||
+      message?.additional_attributes?.session_id ||
+      message?.sender?.identifier ||
+      payload.session_id ||
+      event.session_id;
+
     if (!sessionId) {
-      console.log("⚠️ No session ID found in conversation");
-      return res.json({ success: true });
+      if (conversationId) {
+        const mapped = [...conversationBySession.entries()].find(
+          ([, convo]) => convo?.id === conversationId,
+        );
+        if (mapped) {
+          console.log(
+            `🔁 Recovered missing session ID from memory for conversation ${conversationId}`,
+          );
+          sessionId = mapped[0];
+        }
+      }
+
+      if (!sessionId) {
+        console.log(
+          "⚠️ No session ID found in conversation payload; webhook likely not sending source identifier",
+        );
+        return res.json({ success: true });
+      }
     }
 
     console.log(`📨 Agent reply to session: ${sessionId}`);
@@ -323,7 +395,6 @@ app.post("/webhook/chatwoot", async (req, res) => {
 
     updateSessionActivity(sessionId);
 
-    // Deliver message via SSE or queue it
     if (sseClients.has(sessionId)) {
       const clients = sseClients.get(sessionId);
       clients.forEach((client) => {
@@ -418,9 +489,56 @@ app.get("/api/poll-replies", (req, res) => {
   res.json({ replies: [] });
 });
 
+// Development helper: manually inject a reply for testing
+app.post("/api/debug/mock-reply", localhostOnly, (req, res) => {
+  const { sessionId, message } = req.body || {};
+
+  if (!sessionId || !message) {
+    return res.status(400).json({
+      error: "sessionId and message are required",
+    });
+  }
+
+  const reply = {
+    type: "reply",
+    message,
+    debug: true,
+    timestamp: Math.floor(Date.now() / 1000),
+  };
+
+  if (sseClients.has(sessionId)) {
+    sseClients.get(sessionId).forEach((client) => {
+      client.write(`data: ${JSON.stringify(reply)}\n\n`);
+    });
+  } else {
+    if (!pendingBySession.has(sessionId)) {
+      pendingBySession.set(sessionId, []);
+    }
+    pendingBySession.get(sessionId).push(reply);
+  }
+
+  updateSessionActivity(sessionId);
+
+  res.json({ success: true, injected: true });
+});
+
 // Send message endpoint - sends customer inquiries to Chatwoot
 app.post("/api/send-message", sendMessageRateLimit, async (req, res) => {
   try {
+    // Fail fast if Chatwoot is not configured
+    if (!CHATWOOT_BASE_URL || !CHATWOOT_API_TOKEN || !CHATWOOT_ACCOUNT_ID || !CHATWOOT_INBOX_ID) {
+      const missing = [];
+      if (!CHATWOOT_BASE_URL) missing.push('CHATWOOT_BASE_URL');
+      if (!CHATWOOT_API_TOKEN) missing.push('CHATWOOT_API_TOKEN');
+      if (!CHATWOOT_ACCOUNT_ID) missing.push('CHATWOOT_ACCOUNT_ID');
+      if (!CHATWOOT_INBOX_ID) missing.push('CHATWOOT_INBOX_ID');
+      console.error('❌ Attempt to send message with missing configuration:', missing.join(', '));
+      return res.status(503).json({
+        error: 'Chatwoot configuration missing',
+        missing,
+        hint: 'Set the required environment variables (CHATWOOT_BASE_URL, CHATWOOT_API_TOKEN, CHATWOOT_ACCOUNT_ID, CHATWOOT_INBOX_ID) and restart the server.'
+      });
+    }
     const { customerName, message, customerEmail, sessionId } = req.body;
     console.log("📤 Received customer inquiry:", {
       customerName,
@@ -462,6 +580,13 @@ app.post("/api/send-message", sendMessageRateLimit, async (req, res) => {
     console.log("✅ Message sent to Chatwoot:", sentMessage.id);
 
     updateSessionActivity(sessionId);
+
+    if (!hasReceivedWebhookCallback && !webhookHintLogged) {
+      webhookHintLogged = true;
+      console.warn(
+        "⚠️ No Chatwoot webhook callbacks received yet. If replies are missing, confirm Chatwoot is posting to /webhook/chatwoot on this server.",
+      );
+    }
 
     res.json({
       success: true,

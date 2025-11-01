@@ -15,19 +15,67 @@ A universal WhatsApp business integration platform with a mobile chat widget bui
 1. **Install dependencies**
 
    ```bash
+   # Ensure Node.js 18+ and npm are installed
+   node -v
+   npm -v
+
+   # Install project dependencies
    npm install
    ```
 
-2. **Start the app**
+2. **Start the app (recommended)**
+
+   The project includes a convenience script that starts the backend and the Expo dev server together.
 
    ```bash
+   # Make sure the script is executable then run it
+   chmod +x start-expo.sh
    bash start-expo.sh
    ```
 
-The script automatically detects your environment:
-- 🔵 **Replit** - Uses dev domain automatically
-- 🌍 **VPS** - Auto-detects public IP
-- 💻 **Local** - Uses your local network IP
+   The script automatically detects your environment:
+   - 🔵 **Replit** - Uses dev domain automatically
+   - 🌍 **VPS** - Auto-detects public IP
+   - 💻 **Local** - Uses your local network IP
+
+3. **Run components individually (optional)**
+
+   If you'd rather run parts separately:
+
+   - Start only the backend server on port 3000:
+
+     ```bash
+     npm run start:backend
+     ```
+
+   - Start only the Expo dev server (Metro) for the mobile app:
+
+     ```bash
+     npm run start:frontend
+     ```
+
+   - Start everything using the convenience npm script (same as running the shell script):
+
+     ```bash
+     npm run start:local
+     ```
+
+4. **Scan QR Code / open in simulator**
+
+   - Open Expo Go on your phone and scan the displayed QR code (for LAN).
+   - Or open the iOS or Android simulator from the Expo DevTools.
+
+Notes:
+- The backend server listens on port 3001 by default.
+- The web landing page runs on port 5000 when present.
+- You can set a custom domain or other env vars before running the script:
+
+```bash
+export CUSTOM_DOMAIN=mydomain.example
+export WAHA_BASE_URL=http://your-waha
+export WAHA_SESSION=default
+npm run start:local
+```
 
 3. **Scan QR Code**
    - Open Expo Go on your phone
@@ -66,7 +114,7 @@ bash start-expo.sh
 
 ## 🏗️ Architecture
 
-- **Backend Server** (port 3001) - WhatsApp message handling via Waha
+- **Backend Server** (port 3000) - WhatsApp message handling via Waha
 - **Expo Metro** (port 8080) - Mobile app development server  
 - **Web Frontend** (port 5000) - Landing page
 - **No ngrok needed** - Uses native public URLs
