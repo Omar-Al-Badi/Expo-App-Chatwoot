@@ -1,11 +1,11 @@
 # WhatsApp Business Platform 📱
 
-A universal WhatsApp business integration platform with a mobile chat widget built with React Native and Expo. Customers can chat with your business through a mobile app, and messages are routed to your WhatsApp Business account via Waha.
+A universal WhatsApp business integration platform with a mobile chat widget built with React Native and Expo. Customers can chat with your business through a mobile app, and messages are routed to your WhatsApp Business account.
 
 ## ✨ Features
 
 - 📱 **Mobile Chat Widget** - React Native app for customers to contact your business
-- 💬 **WhatsApp Integration** - Messages sent directly to your business WhatsApp via Waha
+- 💬 **WhatsApp Integration** - Messages sent directly to your business WhatsApp
 - 🌐 **Web Landing Page** - Professional landing page on port 5000
 - 🔄 **Real-time Messaging** - Instant message delivery and reply polling
 - 🚀 **Universal Deployment** - Auto-detects environment (Replit, VPS, Local)
@@ -72,8 +72,6 @@ Notes:
 
 ```bash
 export CUSTOM_DOMAIN=mydomain.example
-export WAHA_BASE_URL=http://your-waha
-export WAHA_SESSION=default
 npm run start:local
 ```
 
@@ -114,7 +112,7 @@ bash start-expo.sh
 
 ## 🏗️ Architecture
 
-- **Backend Server** (port 3000) - WhatsApp message handling via Waha
+- **Backend Server** (port 3000) - WhatsApp message handling
 - **Expo Metro** (port 8080) - Mobile app development server  
 - **Web Frontend** (port 5000) - Landing page
 - **No ngrok needed** - Uses native public URLs
@@ -151,15 +149,12 @@ Optional custom configuration:
 
 ```bash
 CUSTOM_DOMAIN=yourdomain.com     # Custom domain
-WAHA_BASE_URL=http://...         # Your Waha instance URL
-WAHA_SESSION=default             # Waha session name
 ```
 
 ## 📚 Learn More
 
 - [Expo Documentation](https://docs.expo.dev/)
 - [React Native](https://reactnative.dev/)
-- [Waha WhatsApp API](https://waha.devlike.pro/)
 
 ## 🤝 Support
 
